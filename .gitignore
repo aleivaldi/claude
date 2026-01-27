@@ -19,6 +19,19 @@ history.jsonl
 # OS
 .DS_Store
 
+# Shell history
+.zsh_history
+**/.zsh_history
+
+# Nested git repos
+**/.git-backup/
+
+# Compiled Python
+**/__pycache__/
+
+# Zip archives (skills distribuite come zip)
+*.zip
+
 # Config locale (contiene dati specifici macchina)
 config.json
 plugins/
