@@ -1,0 +1,116 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(tree:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(docker exec:*)",
+      "Bash(node --version)",
+      "Bash(npm --version:*)",
+      "Bash(flutter --version:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter test:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter run:*)",
+      "Bash(dart format:*)",
+      "Bash(docker build:*)",
+      "Bash(docker-compose:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run verify:*)"
+    ],
+    "defaultMode": "default"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/load-project-config.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-edit-check.sh $CLAUDE_FILE_PATH",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/lint-file.sh $CLAUDE_FILE_PATH",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/post-edit-check.sh $CLAUDE_FILE_PATH",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-end.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/update-progress.sh $CLAUDE_AGENT_NAME $CLAUDE_AGENT_STATUS",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "language": "Italian",
+  "model": "sonnet"
+}

@@ -1,0 +1,225 @@
+# ============================================================================
+# PROJECT CONFIGURATION TEMPLATE
+# ============================================================================
+# Questo template viene usato da /project-setup per generare la configurazione
+# del progetto. Può anche essere copiato e personalizzato manualmente.
+#
+# Generato da: /project-setup skill
+# Ultima modifica: [auto-generata]
+# ============================================================================
+
+version: "1.0"
+
+# ----------------------------------------------------------------------------
+# INFORMAZIONI PROGETTO
+# ----------------------------------------------------------------------------
+project:
+  name: "ProjectName"                    # Nome progetto (PascalCase)
+  type: "full-stack"                     # full-stack | frontend-only | backend-only | library
+  complexity: "medium"                   # small | medium | large
+  phase: "poc"                           # poc | mvp | production
+  description: ""                        # Breve descrizione (opzionale)
+
+# ----------------------------------------------------------------------------
+# REPOSITORY
+# ----------------------------------------------------------------------------
+# Lista dei repository che compongono il progetto
+# Per progetti mono-repo, un solo elemento. Per multi-repo, uno per componente.
+
+repositories:
+  - name: "project-app"                  # Nome repository
+    type: "flutter"                      # flutter | react | vue | nextjs | nodejs | python | go
+    path: "./project-app"                # Path relativo dalla root progetto
+    # branch: "main"                     # Branch default (opzionale)
+
+  - name: "project-backend"
+    type: "nodejs"
+    path: "./project-backend"
+
+# ----------------------------------------------------------------------------
+# WORKFLOW
+# ----------------------------------------------------------------------------
+# Personalizza il flusso di lavoro del progetto
+
+workflow:
+  # Fasi da saltare completamente
+  skip_phases: []
+    # - user_stories                    # Salta generazione user stories
+    # - e2e_testing                     # Salta test E2E
+
+  # Livello di dettaglio documentazione
+  # minimal: solo overview
+  # progressive: overview + dettaglio dove serve (consigliato)
+  # detailed: tutto dettagliato
+  documentation_level:
+    architecture: "progressive"
+    frontend_specs: "progressive"
+    api_specs: "progressive"
+
+# ----------------------------------------------------------------------------
+# CHECKPOINT
+# ----------------------------------------------------------------------------
+# Configura i punti di controllo del workflow
+#
+# enabled: true/false - se il checkpoint è attivo
+# blocking: true/false - se richiede approvazione per procedere
+#
+# BLOCKING = Stop e attendi approvazione
+# REVIEW = Notifica ma continua automaticamente
+
+checkpoints:
+  # ----- FASE DISCOVERY -----
+  brief:
+    enabled: true
+    blocking: true
+    description: "Brief strutturato completo"
+
+  # ----- FASE REQUIREMENTS -----
+  user_stories:
+    enabled: true
+    blocking: true
+    description: "User stories definite"
+
+  # ----- FASE FRONTEND SPECIFICATIONS -----
+  sitemap:
+    enabled: true
+    blocking: true
+    description: "Struttura pagine/sezioni approvata"
+
+  frontend_specs_overview:
+    enabled: true
+    blocking: false                      # Solo review
+    description: "Overview cosa fa ogni pagina"
+
+  # ----- FASE API SPECIFICATIONS -----
+  api_signature:
+    enabled: true
+    blocking: true
+    description: "Contratto API (endpoints + metodi + dati)"
+
+  api_specs_detail:
+    enabled: false                       # OpenAPI dettagliato opzionale
+    blocking: false
+    description: "OpenAPI specification completa"
+
+  # ----- FASE ARCHITECTURE -----
+  architecture_overview:
+    enabled: true
+    blocking: true
+    description: "Design architettura generale"
+
+  tech_stack_choice:
+    enabled: true
+    blocking: true
+    description: "Scelta linguaggi, framework, database"
+
+  data_model:
+    enabled: true
+    blocking: true
+    description: "Schema dati e relazioni"
+
+  user_flows:
+    enabled: true
+    blocking: true
+    description: "Flussi utente critici definiti"
+
+  # ----- FASE ENVIRONMENT -----
+  environment_config:
+    enabled: true
+    blocking: true
+    description: "Configurazione ambienti dev/staging/prod"
+
+  # ----- FASE IMPLEMENTATION -----
+  frontend_style:
+    enabled: true
+    blocking: false                      # Solo review
+    description: "Design system e stile visivo"
+
+  feature_complete:
+    enabled: true
+    blocking: true
+    description: "Tutte le feature implementate"
+
+  # ----- FASE TESTING -----
+  test_plan:
+    enabled: true
+    blocking: false                      # Solo review
+    description: "Piano test definito"
+
+  e2e_complete:
+    enabled: true
+    blocking: true
+    description: "Test E2E passano tutti"
+
+  # ----- FASE DEPLOY -----
+  release:
+    enabled: true
+    blocking: true
+    description: "Pronto per produzione"
+
+# ----------------------------------------------------------------------------
+# AMBIENTI
+# ----------------------------------------------------------------------------
+# Configurazione per ambiente (override delle regole globali)
+
+environments:
+  development:
+    api_url: "http://localhost:3000"
+    debug: true
+    # Aggiungi variabili specifiche del progetto
+
+  staging:
+    api_url: "https://staging-api.example.com"
+    debug: false
+
+  production:
+    api_url: "https://api.example.com"
+    debug: false
+
+# ----------------------------------------------------------------------------
+# CONVENZIONI
+# ----------------------------------------------------------------------------
+# Override delle convenzioni globali per questo progetto
+
+conventions:
+  # Stile commit
+  git: "conventional"                    # conventional | angular | custom
+
+  # Livello commenti nel codice
+  comments: "minimal"                    # minimal | standard
+
+  # Code review
+  code_review:
+    required_before_merge: true          # Review obbligatoria pre-merge
+    auto_review_by_claude: true          # Review automatica
+
+  # Testing
+  testing:
+    unit_required: true                  # Unit test obbligatori
+    integration_required: true           # Integration test obbligatori
+    e2e_required: true                   # E2E test obbligatori
+    min_coverage: 80                     # Coverage minima %
+
+# ----------------------------------------------------------------------------
+# INTEGRAZIONI (opzionale)
+# ----------------------------------------------------------------------------
+# Servizi esterni e integrazioni
+
+integrations:
+  # ci_cd: "github-actions"              # github-actions | gitlab-ci | circleci
+  # hosting: "vercel"                    # vercel | aws | gcp | azure
+  # database: "postgresql"               # postgresql | mysql | mongodb
+  # message_broker: "mqtt"               # mqtt | rabbitmq | kafka | redis
+
+# ----------------------------------------------------------------------------
+# TEAM (opzionale)
+# ----------------------------------------------------------------------------
+# Per progetti con più persone
+
+# team:
+#   lead: "nome@email.com"
+#   developers:
+#     - "dev1@email.com"
+#     - "dev2@email.com"
+#   reviewers:
+#     - "senior@email.com"

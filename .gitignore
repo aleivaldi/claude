@@ -1,0 +1,24 @@
+# Cache e dati transitori
+cache/
+paste-cache/
+shell-snapshots/
+stats-cache.json
+statsig/
+telemetry/
+file-history/
+debug/
+plans/
+tasks/
+todos/
+
+# Session data
+sessions/
+projects/
+history.jsonl
+
+# OS
+.DS_Store
+
+# Config locale (contiene dati specifici macchina)
+config.json
+plugins/
