@@ -86,6 +86,11 @@ checkpoints:
     blocking: true
     description: "Struttura pagine/sezioni approvata"
 
+  mockup_approval:
+    enabled: true
+    blocking: true
+    description: "Design visivo (mockup + design system) approvato"
+
   frontend_specs_overview:
     enabled: true
     blocking: false                      # Solo review
@@ -199,6 +204,49 @@ conventions:
     integration_required: true           # Integration test obbligatori
     e2e_required: true                   # E2E test obbligatori
     min_coverage: 80                     # Coverage minima %
+
+# ----------------------------------------------------------------------------
+# MOCKUP DESIGNER (opzionale)
+# ----------------------------------------------------------------------------
+mockup_designer:
+  proposals_count: 3                     # Numero varianti da generare
+  key_pages_count: 2                     # Schermate dettagliate per proposta (1-2)
+  max_iterations: 5                      # Loop iterazione conversazionale
+  format: "html-css-artifacts"           # html-css-artifacts | excalidraw | figma-link
+
+# ----------------------------------------------------------------------------
+# EXECUTION (opzionale - override defaults)
+# ----------------------------------------------------------------------------
+execution:
+  max_concurrent_agents: 8               # Max agenti paralleli (default: 8)
+
+  # E2E Integration (Fase 4.5 in /develop)
+  e2e_integration:
+    enabled: true                        # Run E2E automatici (default: true)
+    scope: "critical"                    # critical | milestone | all
+    max_fix_attempts: 2                  # Auto-fix tentativi
+    environment_check: true              # Run verify-environment.sh
+    seed_test_data: true                 # Seed DB prima di test
+    parallel_workers: 4                  # Playwright workers
+
+  # Smoke Tests (Chrome Plugin)
+  smoke_test:
+    enabled: true                        # Run smoke tests (default: true)
+    tool: "chrome-plugin"                # chrome-plugin | playwright | disabled
+    on_success: "continue"               # Continue automaticamente
+    on_failure: "checkpoint"             # STOP solo se fail
+    tests:
+      - login_flow
+      - dashboard_load
+      - create_entity
+      - navigation
+
+  # Track 2 Semantic Validation
+  track2_validation:
+    semantic_quality: true               # Enable quality checks (default: true)
+    max_fix_attempts: 2                  # Auto-fix iterations
+    fail_on_critical: true               # Fail block se critical issues
+    fail_on_warning: false               # Continue con warnings
 
 # ----------------------------------------------------------------------------
 # INTEGRAZIONI (opzionale)

@@ -10,11 +10,12 @@ Framework per automatizzare lo sviluppo software con Claude Code. Supporta workf
 
 # Workflow tipico (ORDINE IMPORTANTE)
 /sitemap-generator               # 1. Genera sitemap (checkpoint)
-/architecture-designer           # 2. Progetta architettura (4 checkpoint) - PRIMA di API!
-/frontend-architecture-designer  # 3a. Architettura frontend (NUOVO)
-/backend-architecture-designer   # 3b. Architettura backend (NUOVO)
-/api-signature-generator         # 4. Genera API signature (checkpoint) - DOPO architettura!
-/project-scaffolder              # 5. Crea struttura repo
+/mockup-designer                 # 2. Design visivo (3 proposte, design system) - NUOVO
+/architecture-designer           # 3. Progetta architettura (4 checkpoint) - PRIMA di API!
+/frontend-architecture-designer  # 4a. Architettura frontend
+/backend-architecture-designer   # 4b. Architettura backend
+/api-signature-generator         # 5. Genera API signature (checkpoint) - DOPO architettura!
+/project-scaffolder              # 6. Crea struttura repo
 
 # Implementazione
 /develop [scope]            # Implementa feature/milestone
@@ -61,11 +62,12 @@ Framework per automatizzare lo sviluppo software con Claude Code. Supporta workf
 ├── skills/                      # Skill invocabili
 │   ├── project-setup/
 │   ├── sitemap-generator/       # 4 fasi, checkpoint
+│   ├── mockup-designer/         # 3 fasi, 1 checkpoint (NUOVO)
 │   ├── architecture-designer/           # 6 fasi, 4 checkpoint
-│   ├── frontend-architecture-designer/  # 5 fasi, 1 checkpoint (NUOVO)
-│   ├── backend-architecture-designer/   # 5 fasi, 1 checkpoint (NUOVO)
+│   ├── frontend-architecture-designer/  # 5 fasi, 1 checkpoint
+│   ├── backend-architecture-designer/   # 5 fasi, 1 checkpoint
 │   ├── api-signature-generator/         # 5 fasi, checkpoint
-│   ├── develop/                         # Parallelizzazione condizionale
+│   ├── develop/                         # 7 fasi + E2E integration
 │   ├── test-runner/
 │   ├── code-review/
 │   └── deploy-helper/
@@ -93,14 +95,14 @@ Framework per automatizzare lo sviluppo software con Claude Code. Supporta workf
 │                           WORKFLOW FASI                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  DISCOVERY ─► SITEMAP ─► ARCHITECTURE ─► IMPL ARCH ─► API SIG ─► SCAFFOLD   │
-│      │           │            │              │            │          │       │
-│      ▼           ▼            ▼              ▼            ▼          ▼       │
-│   brief     sitemap.md    overview.md    frontend-    api-sig    repos       │
-│  (input)    (checkpoint)  tech-stack.md  architecture (checkpoint) setup     │
-│                           data-model.md  backend-                            │
-│                           user-flows.md  architecture                        │
-│                           (4 checkpoint) (2 checkpoint)                      │
+│  DISCOVERY ─► SITEMAP ─► MOCKUP ─► ARCHITECTURE ─► IMPL ARCH ─► API SIG     │
+│      │           │          │          │              │            │         │
+│      ▼           ▼          ▼          ▼              ▼            ▼         │
+│   brief     sitemap.md  design-   overview.md    frontend-    api-sig       │
+│  (input)    (checkpoint) system   tech-stack     architecture (checkpoint)  │
+│                         (checkpoint) data-model  backend-                   │
+│                                    user-flows    architecture               │
+│                                   (4 checkpoint) (2 checkpoint)             │
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
@@ -110,16 +112,24 @@ Framework per automatizzare lo sviluppo software con Claude Code. Supporta workf
 │   /develop ──► decomposizione blocchi ──► CHECKPOINT approvazione            │
 │        │                                                                     │
 │   Per blocco (blocchi indipendenti in parallelo):                            │
-│     Track1: impl ─► review ─► fix  ║  Track2: test-writer (su contratti)     │
-│                         SYNC ──────╝                                         │
+│     Track1: impl+unit ─► review ─► fix  ║  Track2: test-writer (contracts)  │
+│                                          ║    +--> SEMANTIC VALIDATION       │
+│                         SYNC ────────────╝                                   │
 │                    run tests ─► fix ─► BLOCCO OK ─► commit ─► sblocca deps   │
 │                                                                              │
-│   Tutti blocchi OK ─► /deploy (guida)                                        │
+│   Tutti blocchi OK ──► E2E Integration (Fase 4.5):                           │
+│                        - Health checks (backend, DB, frontend)               │
+│                        - E2E tests (@milestone-N)                            │
+│                        - Smoke tests (Chrome plugin automation)              │
+│                        - Auto-fix se fail                                    │
+│                                                                              │
+│   E2E OK ─► CHECKPOINT milestone ─► /deploy (guida)                          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-NOTA: Architecture PRIMA di API Signature perché l'architettura
-      definisce i protocolli (REST, WebSocket, GraphQL, MQTT, etc.)
+NOTA: Mockup PRIMA di Architecture per validare design visivo early.
+      Architecture PRIMA di API Signature (definisce protocolli).
+      E2E Integration automatica DOPO blocchi (trova integration bugs subito).
 ```
 
 ## Checkpoint
@@ -130,6 +140,7 @@ I checkpoint sono punti di controllo dove serve approvazione umana:
 |------------|------|-------|------|-------------|
 | brief | Discovery | - | BLOCKING | Brief strutturato |
 | sitemap | Specifications | /sitemap-generator | BLOCKING | Struttura pagine |
+| mockup_approval | Design | /mockup-designer | BLOCKING | Design visivo approvato |
 | architecture_overview | Architecture | /architecture-designer | BLOCKING | Design sistema |
 | tech_stack_choice | Architecture | /architecture-designer | BLOCKING | Scelta tecnologie |
 | data_model | Architecture | /architecture-designer | BLOCKING | Schema dati |
@@ -137,7 +148,7 @@ I checkpoint sono punti di controllo dove serve approvazione umana:
 | frontend_architecture | Implementation Arch | /frontend-architecture-designer | BLOCKING | Architettura frontend |
 | backend_architecture | Implementation Arch | /backend-architecture-designer | BLOCKING | Architettura backend |
 | api_signature | API Design | /api-signature-generator | BLOCKING | Contratto API |
-| milestone_complete | Implementation | /develop | BLOCKING | Milestone finito |
+| milestone_complete | Implementation | /develop | BLOCKING | Milestone finito (include E2E) |
 | feature_complete | Implementation | /develop | BLOCKING | Feature finite |
 | e2e_complete | Testing | /test-runner | BLOCKING | Test E2E passano |
 | release | Deploy | /deploy-helper | BLOCKING | Pronto produzione |
@@ -191,6 +202,12 @@ Genera sitemap da brief. **4 fasi**:
 3. **Checkpoint SITEMAP**
 4. Finalizzazione
 
+### `/mockup-designer` (NUOVO)
+Genera design visivo da brief + sitemap. **3 fasi**:
+1. Analisi context (brief + sitemap)
+2. Genera 3 proposte HTML/CSS dettagliate + iterazione conversazionale
+3. **Checkpoint MOCKUP_APPROVAL** + finalizzazione design system
+
 ### `/architecture-designer`
 Progetta architettura progressivamente. **6 fasi, 4 checkpoint**:
 1. Analisi Requisiti
@@ -225,12 +242,13 @@ Genera firma API. **5 fasi**, prerequisito: architettura approvata:
 5. Finalizzazione
 
 ### `/develop [scope]`
-Orchestratore principale con **workflow a blocchi**:
+Orchestratore principale con **workflow a blocchi**. **7 fasi**:
 - Decomposizione in blocchi funzionali coesi → **CHECKPOINT** approvazione
-- Per blocco: impl + test-writer (PARALLELO), poi review, poi run test
+- Per blocco: impl+unit + contract test-writer (PARALLELO con semantic validation), review, run test
 - Blocchi indipendenti: **PARALLELO**
 - Blocchi dipendenti: **SEQUENZIALE**
-- Fix: per-blocco, max 3x
+- **Fase 4.5 (NUOVO)**: E2E integration automatica dopo tutti blocchi (health checks + E2E tests + smoke tests)
+- Fix: per-blocco, max 3x; E2E fix max 2x
 
 Scope: `all`, `backend`, `frontend`, `[feature]`, `milestone:N`
 
@@ -346,12 +364,13 @@ project/
 4. **Segui il workflow** (ordine importante!)
    ```
    /sitemap-generator               # 1. Sitemap → approva
-   /architecture-designer           # 2. Architettura sistema → approva (4 checkpoint)
-   /frontend-architecture-designer  # 3a. Architettura frontend → approva
-   /backend-architecture-designer   # 3b. Architettura backend → approva
-   /api-signature-generator         # 4. API → approva (dopo architettura!)
-   /project-scaffolder              # 5. Crea repos
-   /develop                         # 6. Implementa
+   /mockup-designer                 # 2. Design visivo → approva (NUOVO)
+   /architecture-designer           # 3. Architettura sistema → approva (4 checkpoint)
+   /frontend-architecture-designer  # 4a. Architettura frontend → approva
+   /backend-architecture-designer   # 4b. Architettura backend → approva
+   /api-signature-generator         # 5. API → approva (dopo architettura!)
+   /project-scaffolder              # 6. Crea repos
+   /develop                         # 7. Implementa (con E2E auto)
    ```
 
 ## Principi Guida

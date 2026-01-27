@@ -44,6 +44,7 @@ Review consigliata per: [aspetti specifici]
 | Discovery | `brief` | BLOCKING | Brief strutturato completo |
 | Requirements | `user_stories` | BLOCKING | User stories definite |
 | Frontend | `sitemap` | BLOCKING | Struttura pagine approvata |
+| Frontend | `mockup_approval` | BLOCKING | Design visivo e design system approvati |
 | Frontend | `frontend_specs_overview` | REVIEW | Overview schermate |
 | API | `api_signature` | BLOCKING | Contratto API definito |
 | API | `api_specs_detail` | REVIEW | OpenAPI completo |
