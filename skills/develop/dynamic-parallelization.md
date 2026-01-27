@@ -170,13 +170,52 @@ async def execute_block(block):
     if track1_result.status == "failed":
         return BlockResult(status="failed", reason="Track 1 failed")
 
-    # STEP 2b: VALIDATE Track 2 (enforcement R2)
+    # STEP 2b: VALIDATE Track 2 (enforcement R2 + SEMANTIC QUALITY)
     if track2_result.status == "failed":
         return BlockResult(status="failed", reason="Track 2 failed: no contract tests")
     if not track2_result.test_files_exist:
         return BlockResult(status="failed", reason="Track 2: contract test files not created")
     if track2_result.test_count == 0:
         return BlockResult(status="failed", reason="Track 2: 0 contract tests written")
+
+    # NEW: Semantic quality validation
+    quality_issues = await validate_contract_test_quality(block, track2_result)
+    critical_issues = [i for i in quality_issues if i["severity"] == "CRITICAL"]
+
+    if critical_issues:
+        # Attempt auto-fix with test-writer (max 2 attempts)
+        for attempt in range(2):
+            fix_result = await spawn_agent(
+                type="test-writer",
+                prompt=f"""FIX contract test quality issues in {block.id}:
+
+Issues found:
+{format_quality_issues(critical_issues)}
+
+CRITICAL: Contract tests must:
+1. Test actual API contracts (not trivial assertions like expect(true).toBe(true))
+2. Reference schemas/types from contracts (import and use)
+3. Validate response schemas (using Zod, Joi, or similar)
+4. Cover all HTTP methods declared in contract
+5. Include error case tests (4xx responses)
+
+Rewrite tests to be semantically meaningful."""
+            )
+
+            # Re-validate after fix
+            track2_result = await verify_track2_completion(block)
+            quality_issues = await validate_contract_test_quality(block, track2_result)
+            critical_issues = [i for i in quality_issues if i["severity"] == "CRITICAL"]
+
+            if not critical_issues:
+                break  # Quality OK after fix
+
+        # Se ancora critical issues dopo 2 tentativi → FAIL
+        if critical_issues:
+            return BlockResult(
+                status="failed",
+                reason=f"Track 2: contract tests still low quality after 2 fix attempts. Issues: {critical_issues}"
+            )
 
     # STEP 3: Run ALL tests (unit interni da Track 1 + contract da Track 2)
     all_test_files = block.unit_test_files + block.contract_test_files
@@ -641,4 +680,173 @@ Review issues fixati: 3
 Git: develop branch (4 squash merges) -> merge to main
 
 >>> CHECKPOINT: MILESTONE_COMPLETE <<<
+```
+
+---
+
+## Semantic Test Validation (Track 2 Quality)
+
+### Obiettivo
+
+Garantire che i contract test siano **semanticamente validi**, non solo che esistano (count > 0).
+
+### Problema
+
+Validazione quantitativa (STEP 2b basic):
+```python
+if track2_result.test_count == 0:
+    return BlockResult(status="failed", reason="Track 2: 0 contract tests written")
+```
+
+**Gap**: Test-writer può scrivere test inutili che passano validation:
+```typescript
+// Test che passa count > 0 ma è inutile
+test('login endpoint exists', () => {
+  expect(true).toBe(true); // ❌ Always passes!
+});
+```
+
+### Soluzione: Quality Checks
+
+```python
+async def validate_contract_test_quality(block, track2_result):
+    """
+    Valida qualità semantica dei contract test.
+    Returns: lista di Issue objects con severity CRITICAL | WARNING | INFO
+    """
+    issues = []
+
+    for test_file in track2_result.test_files:
+        # Run semantic validator (Python script)
+        result = run_command([
+            "python",
+            "helpers/semantic-test-validator.py",
+            test_file,
+            "--format", "json"
+        ])
+
+        issues.extend(json.loads(result)["issues"])
+
+    return issues
+
+
+def format_quality_issues(issues):
+    """
+    Formatta issue per prompt test-writer.
+    """
+    formatted = []
+
+    for issue in issues:
+        line_info = f" (line {issue['line']})" if issue.get('line') else ""
+        formatted.append(
+            f"- [{issue['check']}]{line_info}: {issue['message']}"
+        )
+
+    return "\n".join(formatted)
+```
+
+### Quality Checks Implemented
+
+Vedi: `helpers/semantic-test-validator.py` per implementation.
+
+**1. Trivial Assertions (CRITICAL)**
+```python
+# Patterns detected:
+- expect(true).toBe(true)
+- expect(false).toBe(false)
+- assert True
+- expect("foo").toBe("foo")  # Same string comparison
+```
+
+**2. Contract References (CRITICAL)**
+```python
+# Check se test importa/usa schemas/types/contracts:
+- import ... Schema ... from
+- from ...schemas import
+- .validate(, schema.parse(, Zod usage
+```
+
+**3. HTTP Method Coverage (WARNING)**
+```python
+# Per API tests, verifica coverage metodi HTTP
+- Declared: GET, POST, DELETE (da comments/describe)
+- Tested: GET, POST (pattern matching .get(, .post()
+- → Warning: "DELETE declared but not tested"
+```
+
+**4. Response Validation (WARNING)**
+```python
+# Verifica che response sia validato:
+- expect(response.body).toMatchSchema
+- schema.parse(response)
+- expect(response).toHaveProperty (almeno)
+```
+
+**5. Error Cases (WARNING)**
+```python
+# Verifica test error cases (4xx):
+- Pattern: 400|401|403|404|422 status codes
+- test.*error, test.*invalid
+- expect.*toThrow
+```
+
+### Integration in Workflow
+
+**STEP 2b Enhanced** (già modificato sopra):
+```python
+# After quantitative validation (count > 0)
+quality_issues = await validate_contract_test_quality(block, track2_result)
+critical_issues = [i for i in quality_issues if i["severity"] == "CRITICAL"]
+
+if critical_issues:
+    # Auto-fix: invoke test-writer max 2x
+    for attempt in range(2):
+        fix_result = await spawn_agent(type="test-writer", ...)
+        # Re-validate
+        quality_issues = await validate_contract_test_quality(...)
+        if not critical_issues:
+            break
+
+    # Se ancora critical dopo 2 fix → FAIL block
+    if critical_issues:
+        return BlockResult(status="failed", reason="Track 2: low quality tests")
+```
+
+### Example Fix Prompt
+
+```
+FIX contract test quality issues in auth-service:
+
+Issues found:
+- [trivial_assertion] (line 12): Trivial assertion found: expect(true).toBe(true)
+- [contract_reference] Test does not reference any schemas, types, or contracts
+- [response_validation] (WARNING) No response validation found
+
+CRITICAL: Contract tests must:
+1. Test actual API contracts (not trivial assertions like expect(true).toBe(true))
+2. Reference schemas/types from contracts (import and use)
+3. Validate response schemas (using Zod, Joi, or similar)
+4. Cover all HTTP methods declared in contract
+5. Include error case tests (4xx responses)
+
+Rewrite tests to be semantically meaningful.
+```
+
+### Benefits
+
+- ✅ Garantisce test **quality** non solo **quantity**
+- ✅ Auto-fix integrato (max 2 attempts, poi fail)
+- ✅ Previene "expect(true).toBe(true)" che passa ma non testa nulla
+- ✅ Enforce best practices (schema validation, error cases)
+
+### Config
+
+```yaml
+# project-config.yaml
+execution:
+  track2_validation:
+    semantic_quality: true        # Enable quality checks (default: true)
+    max_fix_attempts: 2           # Auto-fix iterations
+    fail_on_critical: true        # Fail block se critical issues
+    fail_on_warning: false        # Continue con warnings
 ```

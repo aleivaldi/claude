@@ -51,7 +51,7 @@ Scope validi:
 
 ---
 
-## Workflow: 6 Fasi con Blocchi e Review Integrata
+## Workflow: 7 Fasi con Blocchi, Review e E2E Integration
 
 ```
 Fase 1: Load Context        -> Legge config, progress, specs
@@ -65,14 +65,22 @@ Fase 4: Execute Blocks      -> Per ogni blocco (rispettando dipendenze):
         |  PER BLOCCO:
         |  +--> Track 1 (impl+unit test -> commit WIP -> review -> fix)  |  PARALLELO
         |  +--> Track 2 (contract test su interfacce pubbliche)          |
+        |  |      +--> SEMANTIC VALIDATION (no trivial assertions)
         |  |
-        |  +--> SYNC: Track 1 OK + Track 2 OK
+        |  +--> SYNC: Track 1 OK + Track 2 OK (quality-validated)
         |  |
         |  +--> Run ALL tests -> fix -> focused review -> retest
         |  |
         |  +--> Squash commits -> sblocca dipendenti
         |
         BLOCCHI INDIPENDENTI: IN PARALLELO
+Fase 4.5: Integration E2E   -> DOPO tutti blocchi completati:
+        |  +--> Health checks (backend, DB, frontend)
+        |  +--> Seed test data
+        |  +--> Run E2E tests (critical paths @milestone-N)
+        |  +--> Run smoke tests (Chrome plugin automation)
+        |  +--> Fix se fail -> retest (max 2 tentativi)
+        |  +--> Report E2E metrics
 Fase 5: Checkpoint          -> Stop se blocking, altrimenti continua
 Fase 6: Finalize            -> Update progress, report
 ```
@@ -335,6 +343,198 @@ execution:
 
 Agenti per blocco = 2 (implementer + test-writer) + 1 (reviewer, sequenziale).
 Se N blocchi paralleli richiedono > max_concurrent_agents, accodare.
+
+---
+
+## Fase 4.5: Integration E2E Tests
+
+### Obiettivo
+Eseguire test integration/E2E AUTOMATICI dopo completamento di tutti i blocchi, PRIMA del checkpoint milestone. Trova integration bugs subito, non dopo approvazione.
+
+### Quando Eseguire
+- **Trigger**: Tutti blocchi del milestone completati (4f)
+- **Scope**: Test E2E critical paths + smoke tests automation
+- **Timing**: ~1-2 minuti overhead per milestone standard
+
+### Pre-flight: Environment Verification
+
+```bash
+./helpers/verify-environment.sh
+```
+
+Checks automatici:
+1. Backend UP (health endpoint responds)
+2. Database connesso (se DATABASE_URL definito)
+3. Test data seeded (se script seed disponibile)
+4. Frontend/app UP (per E2E browser tests)
+5. Playwright/browsers installati
+
+**Exit codes**:
+- 0 = All OK → Procedi
+- 1 = Critical failure → STOP, notifica user
+- 2 = Warnings → Procedi con caution
+
+Vedi: `helpers/verify-environment.sh` per dettagli implementation.
+
+### Step 1: Run E2E Contract Tests (Playwright)
+
+Esegui test E2E taggati per questo milestone:
+
+```bash
+# Run tests con tag @milestone-N
+npx playwright test --grep="@milestone-${MILESTONE_ID}"
+```
+
+**Tag strategy** (da comunicare a test-writer in Phase 3):
+```typescript
+// e2e/auth.spec.ts
+test.describe('Auth @milestone-1 @critical', () => {
+  test('login flow end-to-end', async ({ page }) => {
+    // Test completo login -> dashboard
+  });
+});
+```
+
+**Scope E2E**: Solo **critical paths**, non comprehensive:
+- Happy path principali (login, create entity, view list)
+- Integration key (frontend + backend + DB)
+- Exclude: Edge cases (coperti da unit/contract), UI details
+
+**Parallel execution**:
+```bash
+npx playwright test --grep="@milestone-N" --workers=4
+```
+
+### Step 2: Run Smoke Tests (Chrome Plugin - OPTIONAL)
+
+Se configurato in project-config.yaml:
+
+```yaml
+execution:
+  smoke_test:
+    enabled: true
+    tool: "chrome-plugin"  # chrome-plugin | playwright | disabled
+```
+
+Esegui smoke tests automation:
+
+```bash
+./helpers/smoke-test.sh
+```
+
+**Smoke tests** coprono happy path con **browser automation real** (non mock):
+- Login flow
+- Dashboard loads data
+- Create entity (es: device, user, order)
+- Navigation works
+
+Vedi: `helpers/smoke-test.sh` per implementation details (usa Claude Chrome plugin).
+
+**Performance**: ~30s per 4-5 smoke tests.
+
+### Step 3: Handle Failures
+
+Se E2E o smoke tests falliscono:
+
+1. **Categorize failure**:
+   - Integration bug (backend + frontend mismatch)
+   - Environment issue (DB down, missing seed data)
+   - Flaky test (timing, race condition)
+
+2. **Attempt auto-fix** (max 2 tentativi):
+   - Invoca fixer per correggere integration bug
+   - Commit fix: `fix(e2e): address integration issues [milestone]`
+   - **Focused review**: Solo file toccati da fix
+   - Re-run E2E tests
+
+3. **Se ancora fail dopo 2 fix**:
+   - **STOP** e presenta error a user
+   - Report: quali test falliti, error messages, possibili cause
+   - User decide: fix manualmente, skip E2E (con warning), continue
+
+### Step 4: Report E2E Metrics
+
+Includi in milestone summary (per Fase 5 checkpoint):
+
+```markdown
+Milestone [Name] completato.
+
+| Block            | Unit  | Contract | E2E Impact | Fix Rounds |
+|------------------|-------|----------|------------|------------|
+| auth-service     | 5/5   | 8/8      | ✅ Pass    | 0          |
+| device-crud      | 4/4   | 6/6      | ✅ Pass    | 0          |
+| login-ui         | 3/3   | 5/5      | ⚠️ 1 fix   | 1          |
+| device-dashboard | 4/4   | 7/7      | ✅ Pass    | 0          |
+| **Total**        |**16/16**|**26/26**| **E2E: 8/8** | **1**  |
+
+E2E Test Results (Fase 4.5):
+- Critical paths: 8/8 passed ✅
+- Smoke tests: 4/4 passed ✅
+- Integration bugs found: 1 (login-ui + auth-service interaction)
+- Fixes applied: 1
+- Environment issues: 0
+- Total time: 1m 23s
+```
+
+### Configuration
+
+```yaml
+# project-config.yaml
+execution:
+  e2e_integration:
+    enabled: true                 # Run E2E in Fase 4.5 (default: true)
+    scope: "critical"             # critical | milestone | all
+    max_fix_attempts: 2           # Auto-fix tentativi
+    environment_check: true       # Run verify-environment.sh
+    seed_test_data: true          # Seed DB prima di test
+    parallel_workers: 4           # Playwright workers
+
+  smoke_test:
+    enabled: true                 # Run smoke tests (default: true)
+    tool: "chrome-plugin"         # chrome-plugin | playwright | disabled
+    on_success: "continue"        # Continue automaticamente
+    on_failure: "checkpoint"      # STOP solo se fail
+    tests:
+      - login_flow
+      - dashboard_load
+      - create_entity
+      - navigation
+```
+
+### Benefits
+
+- **Early detection**: Integration bugs trovati PRIMA di dire "milestone completo"
+- **Automatic**: Zero manual intervention se tests passano
+- **Fast**: ~1-2 min overhead, molto meno di debug post-approvazione
+- **Confidence**: Milestone checkpoint con "E2E: 8/8 passed" = vero completed
+
+### Error Handling
+
+**Environment failure** (verify-environment.sh exit 1):
+```
+ERROR: Backend not responding at http://localhost:3000/health
+
+Cannot proceed with E2E tests. Please:
+1. Start backend: npm run dev
+2. Verify DATABASE_URL is set
+3. Re-run /develop or skip E2E tests (not recommended)
+```
+
+**E2E test failure** (dopo 2 fix attempts):
+```
+ERROR: E2E tests still failing after 2 fix attempts
+
+Failed tests:
+- Login flow: AssertionError: Expected URL to contain '/dashboard', got '/login'
+- Create device: TimeoutError: Element 'button:has-text("Save")' not found
+
+Possible causes:
+1. Integration bug (frontend expects different API response)
+2. Timing issue (need explicit wait)
+3. Test environment setup (missing seed data)
+
+Action required: Manual investigation or skip E2E (with warning).
+```
 
 ---
 
