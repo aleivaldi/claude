@@ -1,0 +1,17 @@
+feat(develop): workflow a blocchi con review integrata e commit strategy
+
+Riscritta skill /develop con tre miglioramenti:
+
+1. Workflow a blocchi: decomposizione milestone in blocchi funzionali
+   coesi con dependency DAG e checkpoint bloccante. Review per-blocco.
+   Blocchi indipendenti in parallelo.
+
+2. Due livelli di test: implementer (Track 1) scrive unit test per
+   logica interna, test-writer (Track 2) scrive contract/integration
+   test su interfacce pubbliche in parallelo. Focused review dopo
+   fix per test failure.
+
+3. Commit strategy: commit WIP prima della review, commit fix dopo
+   ogni correzione, squash in singolo commit pulito a fine blocco.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>

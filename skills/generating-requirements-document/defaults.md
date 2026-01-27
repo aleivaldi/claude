@@ -1,0 +1,1 @@
+../generating-structured-brief/defaults.md
