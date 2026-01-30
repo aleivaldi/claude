@@ -68,18 +68,27 @@ Esempi:
 
 ### Commit su Feature Branch
 
-Tutti i commit del blocco vanno sul feature branch:
+Tutti i commit del blocco vanno sul feature branch (ciclo di vita completo):
 
 ```bash
-# WIP dopo implementazione (4b)
+# 1. WIP dopo implementazione (4b)
 git commit -m "wip([scope]): implement [block-name]"
 
-# Fix dopo review (4c)
+# 2. Fix dopo code review (4c - loop max 3x)
 git commit -m "fix([scope]): address review [block-name]"
 
-# Fix dopo test failure (4e)
+# 3. Fix dopo test failure (4e - loop max 3x)
 git commit -m "fix([scope]): fix test failures [block-name]"
+
+# 4. Fix completeness - rimozione stub/mock (4e.5 - loop max 2x)
+git commit -m "fix([scope]): complete implementation (remove stub/mock)"
 ```
+
+**Note**:
+- Commit incrementali preservano progresso durante sviluppo
+- Tutti collassati in 1 commit finale via squash merge (4f)
+- Branch isolato → zero conflitti durante sviluppo
+- Rollback facile se blocco fallisce (`git branch -D feature/[block]`)
 
 ## Squash Merge su Develop (Fase 4f)
 

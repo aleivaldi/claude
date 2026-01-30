@@ -11,14 +11,15 @@ Framework per automatizzare lo sviluppo software con Claude Code. Supporta workf
 # Workflow tipico (ORDINE IMPORTANTE)
 /sitemap-generator               # 1. Genera sitemap (checkpoint)
 /mockup-designer                 # 2. Design visivo (3 proposte, design system) - NUOVO
-/architecture-designer           # 3. Progetta architettura (4 checkpoint) - PRIMA di API!
+/architecture-designer           # 3. Progetta architettura (4 checkpoint + expert review) - PRIMA di API!
 /frontend-architecture-designer  # 4a. Architettura frontend
 /backend-architecture-designer   # 4b. Architettura backend
 /api-signature-generator         # 5. Genera API signature (checkpoint) - DOPO architettura!
-/project-scaffolder              # 6. Crea struttura repo
+/infrastructure-provisioner      # 6. Setup infrastruttura (context-aware) - NUOVO
+/project-scaffolder              # 7. Crea struttura repo
 
 # Implementazione
-/develop [scope]            # Implementa feature/milestone
+/develop [scope]            # Implementa feature/milestone (con validation checkpoints)
 
 # Quality & Verification
 /verify                     # Suite verifiche (build, types, lint, test)
@@ -141,13 +142,22 @@ I checkpoint sono punti di controllo dove serve approvazione umana:
 | brief | Discovery | - | BLOCKING | Brief strutturato |
 | sitemap | Specifications | /sitemap-generator | BLOCKING | Struttura pagine |
 | mockup_approval | Design | /mockup-designer | BLOCKING | Design visivo approvato |
+| **expert_review_overview** | **Architecture** | **/architecture-designer** | **REVIEW** | **Validazione architect PRE-checkpoint** |
 | architecture_overview | Architecture | /architecture-designer | BLOCKING | Design sistema |
+| **expert_review_tech_stack** | **Architecture** | **/architecture-designer** | **REVIEW** | **Validazione security+architect PRE-checkpoint** |
 | tech_stack_choice | Architecture | /architecture-designer | BLOCKING | Scelta tecnologie |
+| **expert_review_data_model** | **Architecture** | **/architecture-designer** | **REVIEW** | **Validazione DB+security PRE-checkpoint** |
 | data_model | Architecture | /architecture-designer | BLOCKING | Schema dati |
+| **expert_review_user_flows** | **Architecture** | **/architecture-designer** | **REVIEW** | **Validazione architect PRE-checkpoint** |
 | user_flows | Architecture | /architecture-designer | BLOCKING | Flussi critici |
 | frontend_architecture | Implementation Arch | /frontend-architecture-designer | BLOCKING | Architettura frontend |
 | backend_architecture | Implementation Arch | /backend-architecture-designer | BLOCKING | Architettura backend |
 | api_signature | API Design | /api-signature-generator | BLOCKING | Contratto API |
+| **infrastructure_plan** | **Infrastructure** | **/infrastructure-provisioner** | **BLOCKING** | **Piano infra context-aware** |
+| **specs_completeness** | **Implementation** | **/develop** | **BLOCKING** | **Specs complete prima impl** |
+| **implementation_completeness** | **Implementation** | **/develop** | **BLOCKING** | **Zero stub/mock, aderenza spec** |
+| **frontend_layout** | **Implementation** | **/develop** | **REVIEW** | **Layout check N schermate** |
+| **e2e_framework_validation** | **Implementation** | **/develop** | **BLOCKING** | **E2E framework OK** |
 | milestone_complete | Implementation | /develop | BLOCKING | Milestone finito (include E2E) |
 | feature_complete | Implementation | /develop | BLOCKING | Feature finite |
 | e2e_complete | Testing | /test-runner | BLOCKING | Test E2E passano |
@@ -240,6 +250,20 @@ Genera firma API. **5 fasi**, prerequisito: architettura approvata:
 3. Design Endpoints → **CHECKPOINT: API_SIGNATURE**
 4. Schema Sintetici
 5. Finalizzazione
+
+### `/infrastructure-provisioner` (NUOVO)
+Genera setup infrastruttura personalizzato. **7 fasi, 1 checkpoint**:
+1. Context Discovery (domande interattive: team, local dev, repo strategy)
+2. Analyze Tech Stack
+3. Design Local Dev Strategy (valida workaround)
+4. Generate Minimal Stack (~$2-3/mese)
+5. Generate Full Stack (~$28/mese, opzionale)
+6. Draft + Testing → **CHECKPOINT: INFRASTRUCTURE_PLAN**
+7. Finalization
+
+**Output**: IaC templates (CloudFormation/Terraform) + setup scripts automatici + docker-compose + docs
+
+**Approccio**: Dev-first, context-aware, minimal → full upgrade path
 
 ### `/develop [scope]`
 Orchestratore principale con **workflow a blocchi**. **7 fasi**:

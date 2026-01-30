@@ -220,6 +220,67 @@ Lista checkpoint framework:
 
 ---
 
+## Framework Enhancements (2026-01-30)
+
+### Expert Review
+**Definizione**: Validazione tecnica automatica PRIMA di checkpoint user. Agenti specializzati (DIVERSI da chi genera) reviewano architettura.
+**Fase**: Architecture Designer (4 review phases)
+**Reviewers**: solution-architect, security-auditor, database-architect
+**Verdicts**: APPROVED (procedi) | CONCERNS (user decide) | REJECTED (auto-fix)
+**Beneficio**: Riduce intervento umano - user vede solo architettura validata
+
+### Expert Review PRE-checkpoint
+**Timing**: Dopo draft generation, PRIMA di AskUserQuestion checkpoint
+**Pattern**: Reviewer DIVERSO da chi ha generato (separation of concerns)
+**Overhead**: ~2-3 min per checkpoint (automatico, parallel se multipli)
+
+### Infrastructure Provisioner
+**Definizione**: Skill che genera setup infrastruttura personalizzato basando su context (team structure, local dev, repo strategy).
+**File**: `/infrastructure-provisioner/SKILL.md`
+**Output**: IaC templates (CloudFormation/Terraform) + setup scripts + docker-compose + docs
+**Approccio**: Dev-first, context-aware, minimal (~$2-3/mese) → full (~$28/mese) upgrade path
+
+### Context Discovery
+**Definizione**: Fase interattiva (AskUserQuestion) per capire contesto progetto prima di generare infrastruttura.
+**Domande**: Team structure, local dev services, repository strategy, cloud provider & budget
+**Beneficio**: Setup personalizzato (non one-size-fits-all)
+
+### Minimal Stack
+**Definizione**: Setup infrastruttura essenziale (~$2-3/mese) con servizi cloud minimi + Docker locale.
+**Pattern**: PostgreSQL/Redis locale (Docker), S3/IoT cloud (essenziali)
+**Costo**: ~$2-3/mese (S3 ~$0.50 + IoT ~$2)
+
+### Full Stack
+**Definizione**: Setup infrastruttura con managed services (~$28/mese).
+**Pattern**: RDS PostgreSQL + ElastiCache Redis + S3 + CloudFront
+**Costo**: ~$28/mese (~$13 con Free Tier primi 12 mesi)
+
+### Specs Completeness Validation
+**Definizione**: Checkpoint che verifica specs complete PRIMA di implementare (Develop Fase 3.5).
+**Verifica**: API schemas completi, data entities completi, frontend data sources specificati
+**Tipo**: BLOCKING (STOP se gaps)
+
+### Implementation Completeness Check ⭐
+**Definizione**: Checkpoint che verifica implementazione COMPLETA - zero stub/mock/placeholder (Develop Fase 4e.5).
+**Scansione**: Pattern anti-completeness (TODO, mock, stub, hardcoded, console.log)
+**Aderenza Spec**: Verifica codice segue spec esattamente (tutti campi, validation rules, error cases)
+**Auto-fix**: Max 2 tentativi, poi escalate a user
+**Priorità**: MASSIMA - previene implementazioni incomplete
+
+### Frontend Layout Checkpoint
+**Definizione**: Checkpoint visivo progressivo (Develop Fase 4f.2).
+**Trigger**: Ogni N schermate implementate (config: frequency, default 3)
+**Screenshot**: Automatici (Playwright), full-page
+**Tipo**: REVIEW (non-blocking)
+
+### E2E Framework Validation
+**Definizione**: Checkpoint che verifica E2E framework funziona PRIMA di full suite (Develop Fase 4.5 pre-flight).
+**Sample Test**: 2 test veloci (navigation + interaction)
+**Timeout**: 30s (deve essere veloce)
+**Tipo**: BLOCKING (E2E suite NON esegue se framework broken)
+
+---
+
 ## Terminologia Evitare
 
 ### ❌ DA NON USARE

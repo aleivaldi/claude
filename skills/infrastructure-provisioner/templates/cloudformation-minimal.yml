@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Minimal Stack Template for Dev Environment (~$2-3/month)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project name for resource naming and tagging
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: ^[a-z0-9-]+$
+
+  Environment:
+    Type: String
+    Description: Environment name
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+Conditions:
+  CreateS3Bucket: !Equals [!Ref IncludeS3, 'true']
+  CreateIoTResources: !Equals [!Ref IncludeIoT, 'true']
+
+Parameters:
+  IncludeS3:
+    Type: String
+    Description: Include S3 bucket for storage
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+
+  IncludeIoT:
+    Type: String
+    Description: Include AWS IoT Core resources
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+Resources:
+  # S3 Bucket for Storage
+  AppBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateS3Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-${Environment}-storage"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldFiles
+            Status: Enabled
+            ExpirationInDays: 90
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedMethods: [GET, PUT, POST, DELETE]
+            AllowedHeaders: ['*']
+            MaxAge: 3600
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: CostCenter
+          Value: minimal-stack
+
+  # S3 Bucket Policy (allow public read for specific paths)
+  AppBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateS3Bucket
+    Properties:
+      Bucket: !Ref AppBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub "${AppBucket.Arn}/public/*"
+
+  # IoT Policy for Devices
+  DevicePolicy:
+    Type: AWS::IoT::Policy
+    Condition: CreateIoTResources
+    Properties:
+      PolicyName: !Sub "${ProjectName}-${Environment}-device-policy"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - iot:Connect
+            Resource: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:client/${ProjectName}-*"
+          - Effect: Allow
+            Action:
+              - iot:Publish
+              - iot:Receive
+            Resource: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topic/${ProjectName}/*"
+          - Effect: Allow
+            Action:
+              - iot:Subscribe
+            Resource: !Sub "arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/${ProjectName}/*"
+
+Outputs:
+  BucketName:
+    Description: S3 bucket name
+    Condition: CreateS3Bucket
+    Value: !Ref AppBucket
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-bucket-name"
+
+  BucketArn:
+    Description: S3 bucket ARN
+    Condition: CreateS3Bucket
+    Value: !GetAtt AppBucket.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-bucket-arn"
+
+  BucketURL:
+    Description: S3 bucket URL
+    Condition: CreateS3Bucket
+    Value: !Sub "https://${AppBucket}.s3.${AWS::Region}.amazonaws.com"
+
+  IoTEndpoint:
+    Description: AWS IoT Core endpoint
+    Condition: CreateIoTResources
+    Value: !Sub "https://${AWS::AccountId}.iot.${AWS::Region}.amazonaws.com"
+
+  DevicePolicyName:
+    Description: IoT device policy name
+    Condition: CreateIoTResources
+    Value: !Ref DevicePolicy
+
+  StackCost:
+    Description: Estimated monthly cost
+    Value: "~$2-3/month (S3 ~$0.50 + IoT ~$2)"

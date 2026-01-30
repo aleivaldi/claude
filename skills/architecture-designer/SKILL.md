@@ -96,10 +96,49 @@ Raccogliere requisiti funzionali e non-funzionali per informare decisioni archit
 
 **Consulta `phases/overview-componenti-template.md` per template completo.**
 
+### Step 2.1: Generate Draft
+
 1. Identifica componenti (Frontend, Backend, Database, Cache, Message broker, External services)
 2. Crea `docs/architecture/overview-draft.md` con template
-3. Presenta **CHECKPOINT: ARCHITECTURE_OVERVIEW** con AskUserQuestion
-4. Gestisci risposta: Approva → Fase 3, Modifica → Rileggi e ripresenta
+
+### Step 2.2: Expert Review PRE-checkpoint (NUOVO)
+
+**Obiettivo**: Validazione tecnica automatica PRIMA di presentare all'utente. Riduce intervento umano.
+
+**Consulta `reference/expert-review-protocol.md` per dettagli completi.**
+
+3. **Invoca solution-architect agent** (reviewer DIVERSO da chi ha generato):
+   ```
+   Task: Rivedi overview-draft.md
+   Focus:
+   - Component boundaries appropriate?
+   - Over-engineering detected?
+   - Complexity justified?
+   - Missing critical components?
+   - Architecture patterns sound?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+4. **Gestisci verdict**:
+   - **APPROVED**: Procedi a Step 2.3 (Checkpoint User)
+   - **CONCERNS**: AskUserQuestion [P]rocedi comunque / [M]odifica → se Modifica: applica fix, rigenera draft, re-review
+   - **REJECTED**: Applica fix automatico, rigenera draft, re-review (max 2 cicli), poi escalate a user se ancora REJECTED
+
+5. **Log review outcome** in draft:
+   ```markdown
+   ## Expert Review
+
+   **Reviewer**: solution-architect
+   **Verdict**: APPROVED
+   **Comments**: Component boundaries clear, appropriate for MVP scope
+   **Reviewed at**: 2026-01-30T10:00:00
+   ```
+
+### Step 2.3: Checkpoint User
+
+6. Presenta **CHECKPOINT: ARCHITECTURE_OVERVIEW** con AskUserQuestion
+7. Gestisci risposta: Approva → Fase 3, Modifica → Rileggi e ripresenta
 
 ---
 
@@ -107,10 +146,71 @@ Raccogliere requisiti funzionali e non-funzionali per informare decisioni archit
 
 **Consulta `phases/tech-stack-template.md` per template completo e decisioni comuni.**
 
+### Step 3.1: Generate Draft
+
 1. Proponi tech stack basato su requisiti (Frontend, Backend, Database, Protocolli)
 2. Crea `docs/architecture/tech-stack-draft.md` con template
-3. Presenta **CHECKPOINT: TECH_STACK_CHOICE** con AskUserQuestion
-4. Gestisci risposta: Approva → Fase 4, Modifica → Rileggi e ripresenta
+
+### Step 3.2: Expert Review PRE-checkpoint (NUOVO)
+
+**Obiettivo**: Validazione security + architectural fit PRIMA di presentare all'utente.
+
+**Consulta `reference/expert-review-protocol.md` per dettagli completi.**
+
+3. **Invoca security-auditor + solution-architect agents in PARALLELO** (reviewer DIVERSI da chi ha generato):
+
+   **security-auditor**:
+   ```
+   Task: Rivedi tech-stack-draft.md
+   Focus:
+   - Framework security vulnerabilities?
+   - Known CVEs in proposed versions?
+   - Weak authentication/authorization?
+   - Insecure protocol choices?
+   - Missing security libraries?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+   **solution-architect**:
+   ```
+   Task: Rivedi tech-stack-draft.md
+   Focus:
+   - Architectural fit with components?
+   - Technology maturity appropriate?
+   - Team expertise considerations?
+   - Integration complexity?
+   - Maintenance burden?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+4. **Gestisci verdicts** (combinati):
+   - **Entrambi APPROVED**: Procedi a Step 3.3 (Checkpoint User)
+   - **Uno CONCERNS**: AskUserQuestion con dettagli concerns + opzioni [P]rocedi / [M]odifica
+   - **Uno REJECTED**: Applica fix automatico, rigenera draft, re-review (max 2 cicli), poi escalate a user
+
+5. **Log review outcomes** in draft:
+   ```markdown
+   ## Expert Reviews
+
+   ### Security Review
+   **Reviewer**: security-auditor
+   **Verdict**: APPROVED
+   **Comments**: No known vulnerabilities, JWT implementation sound
+   **Reviewed at**: 2026-01-30T10:00:00
+
+   ### Architecture Review
+   **Reviewer**: solution-architect
+   **Verdict**: APPROVED
+   **Comments**: Stack aligns with MVP goals, appropriate complexity
+   **Reviewed at**: 2026-01-30T10:00:00
+   ```
+
+### Step 3.3: Checkpoint User
+
+6. Presenta **CHECKPOINT: TECH_STACK_CHOICE** con AskUserQuestion
+7. Gestisci risposta: Approva → Fase 4, Modifica → Rileggi e ripresenta
 
 ---
 
@@ -118,10 +218,72 @@ Raccogliere requisiti funzionali e non-funzionali per informare decisioni archit
 
 **Consulta `phases/data-model-template.md` per template completo e best practices.**
 
+### Step 4.1: Generate Draft
+
 1. Identifica entità da sitemap e requisiti, definisci relazioni
 2. Crea `docs/architecture/data-model-draft.md` con template (ERD, tabelle, indici, convenzioni)
-3. Presenta **CHECKPOINT: DATA_MODEL** con AskUserQuestion
-4. Gestisci risposta: Approva → Fase 5, Modifica → Rileggi e ripresenta
+
+### Step 4.2: Expert Review PRE-checkpoint (NUOVO)
+
+**Obiettivo**: Validazione database + security PRIMA di presentare all'utente.
+
+**Consulta `reference/expert-review-protocol.md` per dettagli completi.**
+
+3. **Invoca database-architect + security-auditor agents in PARALLELO** (reviewer DIVERSI da chi ha generato):
+
+   **database-architect**:
+   ```
+   Task: Rivedi data-model-draft.md
+   Focus:
+   - Normalization appropriate (not over/under)?
+   - Indexes defined for common queries?
+   - Relations correctly modeled?
+   - Missing constraints?
+   - Query performance concerns?
+   - Scalability issues?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+   **security-auditor**:
+   ```
+   Task: Rivedi data-model-draft.md
+   Focus:
+   - PII fields protected (encryption)?
+   - Sensitive data isolation?
+   - Audit trail for critical operations?
+   - Multi-tenancy isolation (if applicable)?
+   - SQL injection vulnerabilities in schema?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+4. **Gestisci verdicts** (combinati):
+   - **Entrambi APPROVED**: Procedi a Step 4.3 (Checkpoint User)
+   - **Uno CONCERNS**: AskUserQuestion con dettagli concerns + opzioni [P]rocedi / [M]odifica
+   - **Uno REJECTED**: Applica fix automatico, rigenera draft, re-review (max 2 cicli), poi escalate a user
+
+5. **Log review outcomes** in draft:
+   ```markdown
+   ## Expert Reviews
+
+   ### Database Review
+   **Reviewer**: database-architect
+   **Verdict**: APPROVED
+   **Comments**: Indexes cover 95% queries, normalization at 3NF appropriate
+   **Reviewed at**: 2026-01-30T10:00:00
+
+   ### Security Review
+   **Reviewer**: security-auditor
+   **Verdict**: APPROVED
+   **Comments**: PII encrypted, audit fields present, multi-tenant isolation correct
+   **Reviewed at**: 2026-01-30T10:00:00
+   ```
+
+### Step 4.3: Checkpoint User
+
+6. Presenta **CHECKPOINT: DATA_MODEL** con AskUserQuestion
+7. Gestisci risposta: Approva → Fase 5, Modifica → Rileggi e ripresenta
 
 ---
 
@@ -129,10 +291,50 @@ Raccogliere requisiti funzionali e non-funzionali per informare decisioni archit
 
 **Consulta `phases/user-flows-template.md` per template completo e flussi tipici.**
 
+### Step 5.1: Generate Draft
+
 1. Identifica flussi critici (max 3-5): Autenticazione + core business flows
 2. Crea `docs/architecture/user-flows-draft.md` con template (diagrammi ASCII, passaggi, error cases)
-3. Presenta **CHECKPOINT: USER_FLOWS** con AskUserQuestion
-4. Gestisci risposta: Approva → Fase 6, Modifica → Rileggi e ripresenta
+
+### Step 5.2: Expert Review PRE-checkpoint (NUOVO)
+
+**Obiettivo**: Validazione flow complexity + error handling PRIMA di presentare all'utente.
+
+**Consulta `reference/expert-review-protocol.md` per dettagli completi.**
+
+3. **Invoca solution-architect agent** (reviewer DIVERSO da chi ha generato):
+   ```
+   Task: Rivedi user-flows-draft.md
+   Focus:
+   - Flow complexity reasonable?
+   - Error handling comprehensive?
+   - Bottlenecks detected?
+   - Missing critical paths?
+   - Recovery scenarios defined?
+   - User experience issues?
+
+   Output verdict: APPROVED | CONCERNS | REJECTED
+   ```
+
+4. **Gestisci verdict**:
+   - **APPROVED**: Procedi a Step 5.3 (Checkpoint User)
+   - **CONCERNS**: AskUserQuestion [P]rocedi / [M]odifica → se Modifica: applica fix, rigenera draft, re-review
+   - **REJECTED**: Applica fix automatico, rigenera draft, re-review (max 2 cicli), poi escalate a user se ancora REJECTED
+
+5. **Log review outcome** in draft:
+   ```markdown
+   ## Expert Review
+
+   **Reviewer**: solution-architect
+   **Verdict**: APPROVED
+   **Comments**: Flows cover critical paths, error handling comprehensive, no bottlenecks
+   **Reviewed at**: 2026-01-30T10:00:00
+   ```
+
+### Step 5.3: Checkpoint User
+
+6. Presenta **CHECKPOINT: USER_FLOWS** con AskUserQuestion
+7. Gestisci risposta: Approva → Fase 6, Modifica → Rileggi e ripresenta
 
 ---
 

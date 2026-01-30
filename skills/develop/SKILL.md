@@ -192,9 +192,102 @@ Presenta all'utente:
 - Agenti assegnati per blocco
 
 **STOP** e attendi approvazione. L'utente puo':
-- Approvare -> Procedi a Fase 4
+- Approvare -> Procedi a Fase 3.5 (Specs Completeness Validation)
 - Modificare -> Ridecomponi secondo indicazioni, ripresenta
 - Rifiutare -> STOP completo
+
+---
+
+## Fase 3.5: Specs Completeness Validation
+
+### Obiettivo
+Verificare che specs siano **complete** prima di implementare. Previene implementazioni incomplete per mancanza di dettagli nelle specs.
+
+**Consulta `validation-checkpoints.md` per dettagli completi.**
+
+### Azioni
+
+1. **Cross-reference specs vs blocchi approvati**:
+   - API endpoints in `docs/api-specs/api-signature.md`
+   - Data entities in `docs/architecture/data-model.md`
+   - Frontend screens in `docs/frontend-specs/sitemap.md`
+   - Frontend architecture in `docs/architecture/frontend-architecture.md`
+   - Backend architecture in `docs/architecture/backend-architecture.md`
+
+2. **Verifica completeness per ogni blocco**:
+
+   **API Specs Completeness**:
+   - Request/Response schemas definiti completamente (no TBD, no optional senza default)
+   - HTTP methods specificati
+   - Error responses documentati (400, 401, 403, 404, 500)
+   - Validation rules esplicite (regex, min/max, required fields)
+   - Authentication requirements specificati
+
+   **Data Model Completeness**:
+   - Entity fields e types completi (no missing fields)
+   - Relations tra entità definite (1:1, 1:N, N:M)
+   - Constraints documentati (unique, not null, foreign keys)
+   - Indexes suggeriti per query performance
+
+   **Frontend Specs Completeness**:
+   - Data sources specificati per ogni screen (quali API chiamare)
+   - User actions documentate (buttons, forms, navigation)
+   - Input validation rules (frontend-side)
+   - Error handling UI (come mostrare errori API)
+   - Loading states definiti
+
+3. **Report gaps dettagliato** (se trovati):
+   ```
+   SPECS COMPLETENESS GAPS FOUND
+
+   API Signature gaps:
+   - POST /api/users missing response schema (solo status code definito)
+   - PUT /api/devices/:id missing validation rules (quali campi required?)
+   - GET /api/orders missing error responses (cosa return se 404?)
+
+   Data Model gaps:
+   - Entity "Order" missing field "createdBy" (chi ha creato?)
+   - Relation User->Orders non specificata (1:N o N:M?)
+   - Table "devices" missing index su "organizationId" (performance query)
+
+   Frontend Specs gaps:
+   - Screen "Dashboard" non specifica data source (quale API?)
+   - Screen "LoginForm" missing error handling (come mostrare "invalid credentials"?)
+   - Navigation flow da "DeviceList" a "DeviceDetail" non documentato
+
+   Action required:
+   1. Update specs con dettagli mancanti
+   2. Re-run /develop (ripartirà da questa fase)
+
+   Oppure procedi ignorando gaps (NOT RECOMMENDED - implementazione sarà incompleta)
+   ```
+
+4. **Gestione**:
+   - **Se 0 gaps**: Procedi automaticamente a Fase 4 (Execute Blocks)
+   - **Se gaps trovati**: **STOP** e usa AskUserQuestion con 3 opzioni:
+     - [F] Fix specs ora (RECOMMENDED) → STOP completo, user aggiorna specs manualmente
+     - [I] Ignora gaps e procedi (NOT RECOMMENDED) → Continua con warning
+     - [C] Chiedi a Claude di colmare gaps con ipotesi ragionevoli → Genera draft specs, presenta per approvazione
+
+### Configuration
+
+```yaml
+# project-config.yaml
+develop:
+  validations:
+    specs_completeness:
+      enabled: true           # Default: true
+      blocking: true          # Default: true (STOP se gaps)
+      check_api_schemas: true # Verifica request/response completi
+      check_data_entities: true # Verifica entity fields completi
+      check_screen_data_sources: true # Verifica frontend data sources
+      check_validation_rules: true # Verifica validation esplicite
+      check_error_handling: true # Verifica error cases documentati
+      allow_ignore: true      # Permetti di ignorare gaps (con warning)
+      allow_auto_fill: true   # Permetti a Claude di colmare gaps con ipotesi
+```
+
+**Tipo**: BLOCKING (default) - blocco NON può procedere senza specs complete (o approvazione esplicita gaps)
 
 ---
 
@@ -256,6 +349,31 @@ Co-Authored-By: Claude <model> <noreply@anthropic.com>"
 
 Questo salva il lavoro dell'implementer su un branch isolato. Il reviewer lavora su un diff preciso.
 
+##### Ciclo di Vita Git per Blocco (Summary)
+
+**Pattern**: Feature branch → Commit incrementali → Squash merge
+
+| Step | Branch | Commit | Tipo | Descrizione |
+|------|--------|--------|------|-------------|
+| **4b** | `feature/[block]` | `wip([scope]): implement [block-name]` | WIP | Implementazione iniziale |
+| **4c** | `feature/[block]` | `fix([scope]): address review [block-name]` | FIX | Correzioni da code review (loop max 3x) |
+| **4e** | `feature/[block]` | `fix([scope]): fix test failures [block-name]` | FIX | Fix test falliti (loop max 3x) |
+| **4e.5** | `feature/[block]` | `fix([scope]): complete implementation (remove stub/mock)` | FIX | Rimozione stub/mock, completezza (loop max 2x) |
+| **4f** | `develop` | `feat([scope]): implement [block-name]` | FEAT | Squash merge finale (tutti commit sopra collassati) |
+
+**Benefici branch-per-blocco**:
+- ✅ **Isolamento**: Ogni blocco su proprio branch, zero conflitti tra blocchi paralleli
+- ✅ **Rollback facile**: `git branch -D feature/[block]` se blocco fallisce
+- ✅ **Review precisa**: Reviewer vede diff esatto del blocco
+- ✅ **Storia pulita**: Squash merge → 1 commit finale su develop per blocco
+- ✅ **Work-in-progress salvato**: Commit WIP/fix preservano progresso durante sviluppo
+
+**Gestione conflitti**:
+- **Durante sviluppo blocco**: Impossibile (branch isolato)
+- **Durante squash merge**: Possibile se due blocchi paralleli toccano stesso file
+  - Risoluzione: Merge develop → feature branch, risolvi conflitto, re-test, squash
+  - Dettagli: `git-flow.md`
+
 #### 4c. Track 1: Review e Fix
 
 Dopo il commit WIP:
@@ -297,11 +415,347 @@ Se una qualsiasi validazione fallisce: **blocco FALLITO**. Non si puo' completar
    - Re-run test
    - Max 3 tentativi (ogni tentativo = fix + focused review + re-run)
 
-3. **Se test passano**: Blocco pronto per finalizzazione
+3. **Se test passano**: Procedi a Fase 4e.5 (Implementation Completeness Check)
+
+#### 4e.5 Implementation Completeness Check (PRIORITÀ MASSIMA)
+
+**Obiettivo**: Verificare che implementazione sia **COMPLETA** - zero stub/mock/placeholder, piena aderenza alle specs.
+
+**Consulta `validation-checkpoints.md` per dettagli completi.**
+
+**Questo è il checkpoint PIÙ IMPORTANTE** - previene implementazioni incomplete che arrivano a "milestone complete" con funzionalità non implementate.
+
+##### Step 1: Scan Pattern Anti-completeness
+
+Usa Grep multi-pattern sui file implementati del blocco:
+
+```bash
+# Pattern 1: Commenti da risolvere
+grep -rn "TODO|FIXME|HACK|XXX" [block-files]
+
+# Pattern 2: Dati fittizi
+grep -rni "mock|stub|placeholder|dummy|fake" [block-files]
+
+# Pattern 3: Implementazione vuota (return early senza logica)
+grep -rn "return \{\}|return \[\]|return null|return undefined" [block-files]
+
+# Pattern 4: Dati hardcoded
+grep -rni "hardcoded|hardcode" [block-files]
+
+# Pattern 5: Debug statements
+grep -rn "console\.log|console\.warn|print\(|dump\(" [block-files]
+```
+
+**Eccezioni legittime** (non considerare issue):
+- `return null` in getter per optional values
+- `return {}` in reducer default case
+- `console.error` in error handlers (ma solo se wrappa logger)
+- `// TODO` in commenti di documentazione (non codice)
+
+##### Step 2: Verifica Aderenza Spec
+
+Cross-reference implementazione vs specs:
+
+**API Implementation vs API Signature**:
+- ✅ Endpoint implementa TUTTI i campi di response schema (non subset)
+- ✅ Request validation applica TUTTE le rules da spec (regex, min/max, required)
+- ✅ Error cases da spec gestiti (400, 401, 403, 404, 500)
+- ❌ Campi response mancanti rispetto a schema
+- ❌ Validation rules ignorate
+- ❌ Error cases non gestiti
+
+**Frontend Implementation vs Sitemap/Architecture**:
+- ✅ Screen mostra TUTTI i dati previsti
+- ✅ User actions da spec implementate (buttons, forms)
+- ✅ Navigation flows seguiti
+- ❌ Dati previsti non mostrati
+- ❌ Azioni utente mancanti
+- ❌ Navigation non implementata
+
+**Data Access vs Data Model**:
+- ✅ Query usano indexes suggeriti
+- ✅ Relations implementate correttamente
+- ✅ Constraints rispettati
+- ❌ Missing fields in entity
+- ❌ Relations ignorate
+
+##### Step 3: Report Dettagliato Issues
+
+Se trova issues, genera report strutturato:
+
+```
+═══════════════════════════════════════════════════════════════
+BLOCK IMPLEMENTATION INCOMPLETE: [block-name]
+═══════════════════════════════════════════════════════════════
+
+Stub/Mock/Placeholder Found (Pattern Scan):
+- src/api/users.ts:42
+  Code: return mockUsers // TODO: implement real API call
+  Issue: Mock data instead of real DB query
+
+- src/components/UserList.tsx:18
+  Code: const data = [] // placeholder
+  Issue: Empty placeholder instead of API call
+
+- src/services/device.service.ts:67
+  Code: console.log('Device created:', device)
+  Issue: Debug statement not removed
+
+Spec Deviation Found (Adherence Check):
+- src/api/users.ts missing response field "lastLogin"
+  Spec: api-signature.md line 123 requires "lastLogin: ISO8601"
+  Impact: Frontend expects field, will break
+
+- src/components/LoginForm.tsx no email validation
+  Spec: frontend-architecture.md requires regex /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  Impact: Invalid emails accepted
+
+- src/api/devices.ts missing error handling for 404
+  Spec: api-signature.md defines 404 response {error: "Device not found"}
+  Impact: Generic 500 returned instead
+
+═══════════════════════════════════════════════════════════════
+TOTAL ISSUES: 6 (3 stub/mock, 3 spec deviations)
+
+Action: Fix issues automatically via fixer, re-test, re-check
+═══════════════════════════════════════════════════════════════
+```
+
+##### Step 4: Auto-Fix Loop
+
+**Gestione issues**:
+
+1. **Se 0 issues**: Blocco COMPLETATO → Procedi a 4f (Blocco Completo)
+
+2. **Se issues trovati**:
+   - Invoca **fixer** agent per risolvere TUTTI gli issues
+   - Fixer riceve: report issues + specs reference + file paths
+   - Fixer applica fix:
+     - Sostituisce mock con real implementation
+     - Aggiunge campi mancanti
+     - Implementa validation rules
+     - Rimuove debug statements
+   - **Commit completeness fix**:
+     ```bash
+     git add [fixed-files]
+     git commit -m "fix([scope]): complete implementation (remove stub/mock)
+
+     - Removed mock data placeholders
+     - Implemented missing validation rules
+     - Added missing response fields
+     - Removed debug statements
+
+     Co-Authored-By: Claude <model> <noreply@anthropic.com>"
+     ```
+   - **Re-run tests** (unit + contract)
+   - **Re-check completeness** (re-scan patterns + re-check adherence)
+   - **Loop max 2 volte** (fix -> commit -> test -> re-check -> fix -> commit -> test -> re-check)
+
+3. **Se ancora issues dopo 2 fix cycles**:
+   - **STOP** e presenta report all'utente
+   - AskUserQuestion con 3 opzioni:
+     - [F] Fix manualmente → STOP completo, user interviene
+     - [C] Continua con issues (NOT RECOMMENDED) → Warning logged, procedi
+     - [R] Re-attempt auto-fix (1 tentativo extra) → Loop ancora una volta
+
+##### Step 5: Validation Completeness
+
+Prima di dichiarare blocco completo, verifica:
+
+```
+Implementation Completeness Checklist:
+✅ Zero stub/mock/placeholder in production code
+✅ Zero TODO/FIXME in implementation (docs OK)
+✅ Zero hardcoded data (config/constants OK)
+✅ Zero debug statements (error logging OK)
+✅ All response fields from spec implemented
+✅ All validation rules from spec applied
+✅ All error cases from spec handled
+✅ All user actions from spec implemented
+✅ All data sources from spec connected
+```
+
+**Solo se TUTTE le checklist ✅**: Blocco può procedere a 4f (Completo).
+
+### Configuration
+
+```yaml
+# project-config.yaml
+develop:
+  validations:
+    implementation_completeness:
+      enabled: true               # Default: true (MANDATORY)
+      blocking: true              # Default: true (CANNOT skip)
+      scan_patterns:              # Pattern anti-completeness
+        - "TODO|FIXME|HACK|XXX"
+        - "mock|stub|placeholder|dummy|fake"
+        - "return \\{\\}|return \\[\\]|return null|return undefined"
+        - "hardcoded|hardcode"
+        - "console\\.log|console\\.warn|print\\(|dump\\("
+      check_spec_adherence: true  # Verifica vs specs
+      max_fix_attempts: 2         # Auto-fix cycles
+      allow_continue_with_issues: false # Default: false (STOP se issues)
+      exceptions:                 # Pattern legittime da ignorare
+        - "return null  # optional value"
+        - "return {}    # reducer default"
+        - "console.error # wrapped logger"
+```
+
+**Tipo**: BLOCKING (MANDATORY) - blocco NON può completare con stub/mock o spec deviation.
+
+**Effort**: ~1-2 min per blocco (scan + check automatici, fix solo se needed)
+
+**Benefits**:
+- ✅ **Elimina implementazioni incomplete** (problema principale QRPay)
+- ✅ **Garantisce aderenza specs** (codice fa esattamente cosa specs dicono)
+- ✅ **Auto-fix automatico** (zero intervento umano per 90% casi)
+- ✅ **Early detection** (trova issues PRIMA di dire "blocco completo")
+- ✅ **Transparent** (report dettagliato cosa manca e perché)
 
 #### 4f. Blocco Completo
 
 1. **Verifica build** compila con le modifiche del blocco
+
+#### 4f.2 Frontend Layout Checkpoint (se blocco frontend)
+
+**Trigger**: Ogni N schermate implementate (config: `frequency`)
+
+**Obiettivo**: Verifica progressiva layout frontend vs mockup/design durante implementazione. Previene scoprire layout issues solo a milestone completo.
+
+**Consulta `validation-checkpoints.md` per dettagli completi.**
+
+##### Quando Eseguire
+
+- **Scope**: Solo blocchi frontend (skip se backend-only)
+- **Frequency**: Ogni N schermate (config: default 3)
+- **Timing**: Dopo build verification (4f.1), prima di squash merge (4f.3)
+
+##### Step 1: Generate Screenshots
+
+Usa Playwright per catturare screenshot automatici:
+
+```bash
+# Genera screenshot per schermate implementate in questo blocco
+npx playwright test --grep="@screenshot" --project=chromium
+```
+
+**Setup** (da comunicare a frontend-implementer):
+```typescript
+// e2e/screenshots.spec.ts
+test.describe('Screenshots @screenshot', () => {
+  test('Screen A', async ({ page }) => {
+    await page.goto('/screen-a');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: 'screenshots/screen-a.png', fullPage: true });
+  });
+
+  test('Screen B', async ({ page }) => {
+    await page.goto('/screen-b');
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: 'screenshots/screen-b.png', fullPage: true });
+  });
+});
+```
+
+**Output**: `screenshots/` directory con PNG per ogni screen implementata.
+
+##### Step 2: Present Visual Checkpoint
+
+Presenta checkpoint visivo all'utente:
+
+```
+═══════════════════════════════════════════════════════════════
+>>> FRONTEND LAYOUT CHECKPOINT: Milestone [N] - Block [X/Y] <<<
+═══════════════════════════════════════════════════════════════
+
+Schermate implementate (ultime N):
+1. [Screen Name A] (/path/to/screen-a)
+   Screenshot: screenshots/screen-a.png
+   Data: [Live API | Mock data | Static]
+   Status: Build OK, tests passing
+
+2. [Screen Name B] (/path/to/screen-b)
+   Screenshot: screenshots/screen-b.png
+   Data: [Live API | Mock data | Static]
+   Status: Build OK, tests passing
+
+3. [Screen Name C] (/path/to/screen-c)
+   Screenshot: screenshots/screen-c.png
+   Data: [Live API | Mock data | Static]
+   Status: Build OK, tests passing
+
+Checklist Review (manual):
+- [ ] Layout matches mockup/design system
+- [ ] Responsive (mobile, tablet, desktop)
+- [ ] Accessibility (keyboard nav, ARIA labels)
+- [ ] Branding (colors, fonts, logo)
+- [ ] Loading states visible
+- [ ] Error states visible
+
+═══════════════════════════════════════════════════════════════
+Action: [P]rocedi / [R]eview (STOP per ispezione)
+═══════════════════════════════════════════════════════════════
+```
+
+##### Step 3: User Response
+
+- **[P] Procedi**: Continua automaticamente a 4f.3 (Squash Merge)
+- **[R] Review**: **STOP** completo
+  - User ispeziona screenshots manualmente
+  - User testa app in locale (se serve)
+  - User comunica feedback/modifiche
+  - Riprendi con fix o procedi
+
+##### Step 4: Logging
+
+Log checkpoint outcome in progress.yaml:
+
+```yaml
+milestones:
+  - id: M1
+    frontend_layout_checkpoints:
+      - block_id: [block-name]
+        screens_count: N
+        screenshots: ["screen-a.png", "screen-b.png", "screen-c.png"]
+        user_action: "proceed"  # proceed | review_stop
+        timestamp: "[ISO-8601]"
+```
+
+### Configuration
+
+```yaml
+# project-config.yaml
+develop:
+  validations:
+    frontend_layout_check:
+      enabled: true              # Default: true
+      blocking: false            # Default: false (REVIEW, non-blocking)
+      frequency: 3               # Ogni 3 schermate
+      screenshot_tool: "playwright" # playwright | puppeteer | manual
+      screenshot_format: "png"   # png | jpg
+      full_page: true            # Screenshot full page o viewport
+      checks:                    # Checklist per user
+        - responsive
+        - accessibility
+        - branding
+        - loading_states
+        - error_states
+      on_review_stop:
+        save_state: true         # Salva stato blocco per resume
+        notify_user: true
+```
+
+**Tipo**: REVIEW (non-blocking) - notifica user ma continua automaticamente se user non richiede stop.
+
+**Effort**: ~30s per checkpoint (screenshot generation automatico)
+
+**Benefits**:
+- ✅ **Early visual feedback** (ogni N schermate, non solo a milestone end)
+- ✅ **Automatic screenshots** (zero manual effort se tutto OK)
+- ✅ **Progressive validation** (layout issues trovati progressivamente)
+- ✅ **Non-blocking** (continua automaticamente se user non interviene)
+- ✅ **Resumable** (può fermarsi e riprendere senza perdere progresso)
+
 2. **Squash merge su develop** (git flow):
    ```bash
    git checkout develop
@@ -355,6 +809,163 @@ Eseguire test integration/E2E AUTOMATICI dopo completamento di tutti i blocchi, 
 - **Trigger**: Tutti blocchi del milestone completati (4f)
 - **Scope**: Test E2E critical paths + smoke tests automation
 - **Timing**: ~1-2 minuti overhead per milestone standard
+
+### Pre-flight: E2E Framework Validation
+
+**Obiettivo**: Verificare che Playwright/E2E framework funzioni PRIMA di eseguire full suite. Previene investire tempo su suite completa se framework broken.
+
+**Consulta `validation-checkpoints.md` per dettagli completi.**
+
+#### Step 1: Check Sample Test Exists
+
+Verifica se sample test esiste:
+
+```bash
+# Per Playwright
+test -f e2e/sample.spec.ts || test -f tests/e2e/sample.spec.ts
+
+# Per Patrol (Flutter)
+test -f integration_test/sample_test.dart
+```
+
+Se **non esiste**: Genera sample test automaticamente (vedi Step 2).
+
+#### Step 2: Generate Sample Test (se mancante)
+
+**Template Playwright** (Node.js/Frontend):
+
+```typescript
+// e2e/sample.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('E2E Framework Check @framework-check', () => {
+  test('navigation works', async ({ page }) => {
+    await page.goto('/');
+    expect(page.url()).toContain('/');
+    const title = await page.title();
+    expect(title).toBeTruthy();
+  });
+
+  test('basic interaction works', async ({ page }) => {
+    await page.goto('/');
+    // Click first button/link found
+    const button = page.locator('button, a').first();
+    if (await button.count() > 0) {
+      await button.click();
+      // Verify page changed or action happened
+      await page.waitForTimeout(500);
+    }
+    expect(true).toBe(true); // Framework can execute
+  });
+});
+```
+
+**Template Patrol/Flutter**:
+
+```dart
+// integration_test/sample_test.dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:patrol/patrol.dart';
+
+void main() {
+  patrolTest('E2E Framework Check', ($) async {
+    await $.pumpWidgetAndSettle(MyApp());
+
+    // Navigation works
+    expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Basic interaction works
+    final firstButton = find.byType(ElevatedButton).first;
+    if (firstButton.evaluate().isNotEmpty) {
+      await $.tap(firstButton);
+    }
+
+    expect(true, true); // Framework can execute
+  });
+}
+```
+
+Salva sample test nel path appropriato.
+
+#### Step 3: Run Sample Test
+
+Esegui SOLO il sample test (non full suite):
+
+```bash
+# Playwright
+npx playwright test --grep="@framework-check"
+
+# Patrol (Flutter)
+patrol test integration_test/sample_test.dart
+```
+
+**Timeout**: 30 secondi (sample test deve essere veloce).
+
+#### Step 4: Analyze Result
+
+**PASS** (exit code 0):
+```
+✅ E2E Framework Validation: PASSED
+
+Sample tests:
+- navigation works: ✅ PASS (234ms)
+- basic interaction works: ✅ PASS (187ms)
+
+E2E framework OK. Proceeding with full suite.
+```
+
+→ Procedi automaticamente a Step 1 (Environment Verification).
+
+**FAIL** (exit code non-0):
+```
+❌ E2E Framework Validation: FAILED
+
+Sample test failures:
+- navigation works: FAIL - Error: page.goto: net::ERR_CONNECTION_REFUSED
+- basic interaction works: SKIPPED (dependency failed)
+
+Possible causes:
+1. App not running (start dev server: npm run dev)
+2. Wrong base URL in playwright.config.ts
+3. Missing Playwright browsers (run: npx playwright install)
+4. Port conflict (check if port already in use)
+
+Troubleshooting steps:
+1. Verify app is running: curl http://localhost:[PORT]
+2. Check playwright.config.ts baseURL matches app URL
+3. Install browsers if needed: npx playwright install chromium
+4. Check error logs above for specific issues
+
+Action required: Fix framework issues, then re-run /develop
+```
+
+→ **STOP** completo. User deve risolvere framework issues prima di procedere.
+
+#### Step 5: Configuration
+
+```yaml
+# project-config.yaml
+develop:
+  validations:
+    e2e_framework_validation:
+      enabled: true                  # Default: true
+      blocking: true                 # Default: true (STOP se fail)
+      sample_test_path: "e2e/sample.spec.ts" # Path sample test
+      auto_generate_sample: true     # Genera se mancante
+      sample_test_timeout: 30000     # 30 secondi
+      framework: "playwright"        # playwright | patrol | cypress
+```
+
+**Tipo**: BLOCKING - E2E suite NON può eseguire se framework broken.
+
+**Effort**: ~5-10s (run 2 sample tests, automatico)
+
+**Benefits**:
+- ✅ **Verifica framework OK** prima di investire tempo su full suite
+- ✅ **Auto-generate sample** se mancante (zero setup manuale)
+- ✅ **Clear troubleshooting** (error messages con fix steps)
+- ✅ **Fast feedback** (~5-10s vs 1-2 min full suite)
+- ✅ **Prevents waste** (non esegue 50 test se framework broken)
 
 ### Pre-flight: Environment Verification
 
