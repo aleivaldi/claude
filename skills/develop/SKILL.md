@@ -65,7 +65,6 @@ Fase 4: Execute Blocks      -> Per ogni blocco (rispettando dipendenze):
         |  PER BLOCCO:
         |  +--> Track 1 (impl+unit test -> commit WIP -> review -> fix)  |  PARALLELO
         |  +--> Track 2 (contract test su interfacce pubbliche)          |
-        |  |      +--> SEMANTIC VALIDATION (no trivial assertions)
         |  |
         |  +--> SYNC: Track 1 OK + Track 2 OK (quality-validated)
         |  |
@@ -85,7 +84,7 @@ Fase 5: Checkpoint          -> Stop se blocking, altrimenti continua
 Fase 6: Finalize            -> Update progress, report
 ```
 
-**Consulta `dynamic-parallelization.md` per architettura completa.**
+**Consulta `dynamic-parallelization.md` per architettura completa (include semantic validation Track 2).**
 
 ---
 
@@ -266,8 +265,10 @@ Verificare che specs siano **complete** prima di implementare. Previene implemen
    - **Se 0 gaps**: Procedi automaticamente a Fase 4 (Execute Blocks)
    - **Se gaps trovati**: **STOP** e usa AskUserQuestion con 3 opzioni:
      - [F] Fix specs ora (RECOMMENDED) → STOP completo, user aggiorna specs manualmente
-     - [I] Ignora gaps e procedi (NOT RECOMMENDED) → Continua con warning
+     - [I] Ignora gaps e procedi (NOT RECOMMENDED) → Continua con warning logged
      - [C] Chiedi a Claude di colmare gaps con ipotesi ragionevoli → Genera draft specs, presenta per approvazione
+
+**IMPORTANT**: "BLOCKING" significa STOP + presentazione opzioni all'utente. L'utente DEVE scegliere esplicitamente [F]/[I]/[C] - non si procede automaticamente. Se user sceglie [I], accetta il rischio (warning logged).
 
 ### Configuration
 
@@ -277,17 +278,17 @@ develop:
   validations:
     specs_completeness:
       enabled: true           # Default: true
-      blocking: true          # Default: true (STOP se gaps)
+      blocking: true          # Default: true (STOP + AskUserQuestion se gaps)
       check_api_schemas: true # Verifica request/response completi
       check_data_entities: true # Verifica entity fields completi
       check_screen_data_sources: true # Verifica frontend data sources
       check_validation_rules: true # Verifica validation esplicite
       check_error_handling: true # Verifica error cases documentati
-      allow_ignore: true      # Permetti di ignorare gaps (con warning)
-      allow_auto_fill: true   # Permetti a Claude di colmare gaps con ipotesi
+      allow_ignore: true      # Permetti opzione [I] ignorare (user decide)
+      allow_auto_fill: true   # Permetti opzione [C] Claude colma gaps
 ```
 
-**Tipo**: BLOCKING (default) - blocco NON può procedere senza specs complete (o approvazione esplicita gaps)
+**Tipo**: BLOCKING - STOP execution + AskUserQuestion (user MUST choose [F]/[I]/[C], no auto-proceed)
 
 ---
 
