@@ -803,7 +803,302 @@ develop:
 
 **Note**: Setup è completamente automatico - NON chiedere permesso all'utente per installare Playwright o generare test.
 
-2. **Squash merge su develop** (git flow):
+#### 4f.4 Flutter Integration Tests + Layout Validation (OPZIONALE)
+
+**Trigger**:
+- **Per blocco**: Blocco frontend Flutter completato con screen navigabile
+- **Per milestone**: TUTTI blocchi frontend completati (merge thread paralleli)
+- **Configurabile**: User sceglie quando eseguire (default: a fine milestone)
+
+**Obiettivo**: Verificare integrazione completa app Flutter + backend reale, validare layout su diversi device/risoluzioni.
+
+**Consulta `flutter-integration-tests.md` per dettagli completi.**
+
+##### Quando Eseguire
+
+**Opzione 1: Per Blocco** (immediate feedback, più overhead)
+- Dopo ogni blocco frontend completato
+- Pro: Early detection layout issues
+- Contro: ~1-2 min overhead per blocco
+
+**Opzione 2: A Fine Milestone** (consigliato)
+- Dopo TUTTI blocchi frontend completati
+- Se thread paralleli (backend + frontend), eseguire quando si uniscono
+- Pro: Overhead ridotto, test su integrazione completa
+- Contro: Layout issues trovati più tardi
+
+**Opzione 3: Solo Manual** (user decide)
+- Skill NON esegue automaticamente
+- User esegue manualmente quando vuole
+- Pro: Massimo controllo
+- Contro: Può dimenticare di testare
+
+**Default**: Opzione 2 (a fine milestone)
+
+##### Step 1: Ask User Preference (PRIMA DI INIZIARE BLOCCHI)
+
+Se `flutter_integration_tests.enabled: true` in config, chiedi all'utente:
+
+```
+═══════════════════════════════════════════════════════════════
+>>> FLUTTER INTEGRATION TESTS CONFIGURATION <<<
+═══════════════════════════════════════════════════════════════
+
+Quando eseguire integration tests Flutter?
+
+Opzioni:
+[1] Per blocco - Test dopo ogni blocco frontend (early feedback, ~1-2min/blocco)
+[2] A fine milestone - Test quando TUTTI blocchi completati (consigliato)
+[3] Solo manual - NON eseguire automaticamente
+
+Note:
+- Test includono: login flow, navigation, widget rendering, API integration
+- Screenshot salvati SEMPRE per review visuale
+- Layout overflow verificato automaticamente
+- User approval richiesto SEMPRE
+
+═══════════════════════════════════════════════════════════════
+```
+
+Salva scelta in `progress.yaml`:
+
+```yaml
+milestones:
+  - id: M1
+    flutter_integration:
+      timing: "per_milestone"  # per_block | per_milestone | manual
+      enabled: true
+```
+
+##### Step 2: Generate Integration Tests (auto)
+
+Se non esistono già, genera test integration per screen implementate:
+
+```dart
+// integration_test/[screen_name]_test.dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:[app_name]/main.dart' as app;
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('[ScreenName] E2E test', (tester) async {
+    app.main();
+    await tester.pumpAndSettle();
+
+    // Test login, navigation, widget rendering
+    // ...
+  });
+}
+```
+
+##### Step 3: Run Integration Tests + Capture Screenshots
+
+```bash
+# iOS Simulator (usa IP host, non localhost)
+flutter test integration_test/[test].dart \
+  --dart-define=API_URL=http://[HOST_IP]:3000/api/v1 \
+  --dart-define=WS_URL=ws://[HOST_IP]:3000
+
+# Android Emulator (usa 10.0.2.2 per localhost)
+flutter test integration_test/[test].dart \
+  --dart-define=API_URL=http://10.0.2.2:3000/api/v1 \
+  --dart-define=WS_URL=ws://10.0.2.2:3000
+```
+
+Durante test, cattura screenshots automaticamente (ogni schermata testata).
+
+##### Step 4: Layout Overflow Validation
+
+Analizza output test per overflow errors:
+
+```bash
+grep -i "overflowed by" test-output.txt
+```
+
+Se overflow trovati:
+1. **Report dettagliato**:
+   ```
+   LAYOUT OVERFLOW DETECTED
+
+   Widget: Column in StatsBar (line 108)
+   Overflow: 53 pixels on bottom
+   Constraints: BoxConstraints(w=124.5, 0.0<=h<=43.8)
+
+   Suggested fix:
+   - Increase childAspectRatio (current: 2.8)
+   - Reduce fontSize (current: 32)
+   - Add Expanded/Flexible widgets
+   ```
+
+2. **Auto-fix tentativi** (max 2):
+   - Applica fix suggerito
+   - Re-run test
+   - Verifica overflow risolto
+
+3. **Se ancora overflow**: Presenta a user per review manuale
+
+##### Step 5: Present Test Results + Screenshots
+
+**SEMPRE presenta risultati con screenshot**, anche se test passano:
+
+```
+═══════════════════════════════════════════════════════════════
+>>> FLUTTER INTEGRATION TEST RESULTS: Milestone [N] <<<
+═══════════════════════════════════════════════════════════════
+
+Test Execution:
+- Duration: 49 secondos
+- Tests Run: 2
+- Passed: 2 ✅
+- Failed: 0
+- Overflow Errors: 0 ✅
+
+Screenshots Saved (for visual review):
+1. LoginScreen - integration_test/screenshots/login_screen.png
+2. DeviceListScreen - integration_test/screenshots/device_list_screen.png
+3. DeviceDetail - integration_test/screenshots/device_detail.png
+
+Layout Validation:
+✅ No overflow detected
+✅ Responsive layout on tested device (iPad Pro 12.9")
+✅ All widgets rendered correctly
+
+Backend Integration:
+✅ POST /api/v1/auth/login (200ms)
+✅ GET /api/v1/devices (150ms)
+✅ GET /api/v1/devices/stats (120ms)
+
+Checklist Review (manual verification needed):
+- [ ] Screenshots match design/mockup
+- [ ] Layout correct on different devices (iPhone, iPad, Android)
+- [ ] No visual bugs (text cut, images distorted, spacing wrong)
+- [ ] Loading/error states visible
+- [ ] Animations smooth
+
+═══════════════════════════════════════════════════════════════
+APPROVAL REQUIRED
+Action: [A]pprove / [R]eject with feedback / [I]gnore (skip manual review)
+═══════════════════════════════════════════════════════════════
+```
+
+##### Step 6: User Approval
+
+**SEMPRE richiedi approvazione**, anche se test passano:
+
+- **[A] Approve**:
+  - Log approvazione in progress.yaml
+  - Procedi a squash merge (4f.5)
+
+- **[R] Reject with feedback**:
+  - **STOP** completo
+  - User specifica problemi trovati (layout, funzionalità)
+  - Invoca fixer per correggere
+  - Re-run test + re-present risultati
+
+- **[I] Ignore**:
+  - Skip manual review screenshots (rischio alto)
+  - Warning logged
+  - Procedi a squash merge (user accetta rischio)
+
+##### Step 7: Log Results
+
+```yaml
+milestones:
+  - id: M1
+    flutter_integration:
+      executed_at: "2026-01-31T12:00:00Z"
+      timing: "per_milestone"
+      tests_run: 2
+      tests_passed: 2
+      overflow_errors: 0
+      screenshots:
+        - "integration_test/screenshots/login_screen.png"
+        - "integration_test/screenshots/device_list_screen.png"
+      user_approval: "approved"  # approved | rejected | ignored
+      feedback: null  # User feedback se rejected
+```
+
+##### Configuration
+
+```yaml
+# project-config.yaml
+develop:
+  validations:
+    flutter_integration_tests:
+      enabled: true                    # Default: true per progetti Flutter
+      timing: "ask_user"               # ask_user | per_block | per_milestone | manual
+      auto_generate_tests: true        # Genera test se mancanti
+      screenshot_always: true          # Salva screenshot SEMPRE (non opzionale)
+      approval_required: true          # SEMPRE richiedi approval (non opzionale)
+      overflow_validation: true        # Verifica layout overflow
+      auto_fix_overflow: true          # Tenta fix automatico overflow
+      max_fix_attempts: 2              # Max tentativi auto-fix
+
+      devices:                         # Device su cui testare
+        - "iOS Simulator (iPad Pro)"
+        - "Android Emulator (Pixel 5)"
+
+      backend_integration: true        # Test con backend reale (no mock)
+      api_timeout: 5000                # Timeout API calls (ms)
+
+      on_failure:
+        action: "stop_and_report"      # stop_and_report | continue_with_warning
+        save_logs: true
+        notify_user: true
+```
+
+##### When to Execute (Thread Parallel)
+
+Se implementazione usa **thread paralleli** (es: backend + frontend simultanei):
+
+**Scenario 1: Backend + Frontend in parallelo**
+```
+Backend Track  ──────────────────────────► Backend completo
+Frontend Track ──────────────────────────► Frontend completo
+                                           │
+                                           ▼
+                                    SYNC POINT: Merge
+                                           │
+                                           ▼
+                                Flutter Integration Tests
+                                  (backend + frontend insieme)
+```
+
+**Scenario 2: Multiple frontend blocks in parallelo**
+```
+Screen A ──────► OK ──┐
+Screen B ──────► OK ──┼──► MERGE ──► Integration Tests (tutte screen)
+Screen C ──────► OK ──┘
+```
+
+**Regola**: Esegui integration tests quando **TUTTI thread dipendenti sono completi** e pronti a merge.
+
+##### Benefits
+
+- ✅ **Real backend integration** validated
+- ✅ **Layout overflow** detected and fixed early
+- ✅ **Screenshots ALWAYS saved** for manual review
+- ✅ **User approval REQUIRED** (no silent failures)
+- ✅ **Configurable timing** (per blocco, milestone, manual)
+- ✅ **Auto-fix overflow** (max 2 attempts)
+- ✅ **Thread-aware** (test quando thread merge)
+
+##### Effort
+
+- Setup prima volta: ~30s (install integration_test)
+- Test run: ~40-50s per milestone (2-5 test)
+- Screenshot review: ~1-2 min (user manual)
+- Total: ~2-3 min per milestone
+
+**Tipo**: REVIEW (richiede user approval, ma non blocking se user sceglie [I]gnore)
+
+#### 4f.5 Blocco Completo (era 4f.4, rinumerato)
+
+1. **Verifica build** compila con le modifiche del blocco
+
+3. **Squash merge su develop** (git flow):
    ```bash
    git checkout develop
    git merge --squash feature/[block-scope]
@@ -812,20 +1107,22 @@ develop:
    - Unit tests: X/Y passed
    - Contract tests: X/Y passed
    - Review issues fixed: [N]
+   - Integration tests: X/Y passed (se eseguiti)
 
    Co-Authored-By: Claude <model> <noreply@anthropic.com>"
 
    git branch -d feature/[block-scope]
    ```
    **Consulta `git-flow.md` per dettagli merge e conflict handling.**
-3. **Report test outcome** per blocco:
+4. **Report test outcome** per blocco:
    ```
    Unit (Track 1): X/Y passed (first attempt | N fix rounds)
    Contract (Track 2): X/Y passed (first attempt | N fix rounds)
+   Integration (Flutter): X/Y passed (se eseguiti)
    Total: X/Y
    ```
-4. **Sblocca blocchi dipendenti** (aggiorna DAG)
-5. **Log completamento** e procedi al prossimo blocco
+5. **Sblocca blocchi dipendenti** (aggiorna DAG)
+6. **Log completamento** e procedi al prossimo blocco
 
 ### Parallelismo tra Blocchi
 
