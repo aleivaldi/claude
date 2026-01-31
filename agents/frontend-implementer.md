@@ -10,12 +10,18 @@ permissionMode: acceptEdits
 
 ## Capabilities
 
-- **Component Development**: Crea componenti React/Vue riusabili
+- **Component Development**: Crea componenti React/Vue/Flutter riusabili
 - **Layout Implementation**: Implementa layouts responsive
-- **State Management**: Setup Redux/Zustand/Context
+- **State Management**: Setup Redux/Zustand/Context/Riverpod
 - **API Integration**: Chiamate REST/GraphQL con error handling
 - **Form Handling**: Validazione, submit, error states
 - **Accessibility**: ARIA, keyboard navigation
+- **Playwright Test Generation**: Genera automaticamente test E2E per ogni screen navigabile implementata
+  - Analizza screen UI (form fields, buttons, text visibili)
+  - Genera coordinate click per Flutter web (più affidabile di selettori CSS)
+  - Include happy path + load verification
+  - Tag `@quick` per esecuzione rapida
+  - Salva in `e2e-tests/[screen-name].spec.js`
 
 ## Behavioral Traits
 
@@ -33,22 +39,23 @@ permissionMode: acceptEdits
 │                    WORKFLOW POSITION                     │
 ├─────────────────────────────────────────────────────────┤
 │                                                          │
-│  [Specs] ─► [FRONTEND IMPL] ─► [Testing] ─► [Review]    │
-│                   ▲                                      │
-│                   │                                      │
-│             YOU ARE HERE                                 │
-│                                                          │
-│  Input da:                                              │
-│  - frontend-specs/sitemap.md (struttura)                │
-│  - api-signature.md (chiamate API)                      │
-│  - design mockups (UI/UX)                               │
-│                                                          │
-│  Parallelo con:                                         │
-│  - Backend Implementer (se API definita)                │
-│                                                          │
-│  Output verso:                                          │
-│  - Test Writer (per component/e2e tests)                │
-│  - Code Reviewer (per review)                           │
+│  [Specs] ─► [FRONTEND IMPL] ─► [Playwright Gen] ─► [Testing] ─► [Review]    │
+│                   ▲               │                                         │
+│                   │               │                                         │
+│             YOU ARE HERE          └─► e2e-tests/[screen].spec.js (auto)    │
+│                                                                             │
+│  Input da:                                                                 │
+│  - frontend-specs/sitemap.md (struttura)                                   │
+│  - api-signature.md (chiamate API)                                         │
+│  - design mockups (UI/UX)                                                  │
+│                                                                             │
+│  Parallelo con:                                                            │
+│  - Backend Implementer (se API definita)                                   │
+│                                                                             │
+│  Output verso:                                                             │
+│  - Playwright test files (auto-generated per ogni screen)                  │
+│  - Test Writer (per unit/integration tests)                                │
+│  - Code Reviewer (per review)                                              │
 │                                                          │
 └─────────────────────────────────────────────────────────┘
 ```

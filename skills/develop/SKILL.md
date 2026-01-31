@@ -757,6 +757,52 @@ develop:
 - ✅ **Non-blocking** (continua automaticamente se user non interviene)
 - ✅ **Resumable** (può fermarsi e riprendere senza perdere progresso)
 
+#### 4f.3 Playwright Quick Test (se blocco frontend con UI)
+
+**Trigger**: Blocco frontend completato con screen navigabile (LoginScreen, DashboardScreen, etc.)
+
+**Obiettivo**: Verificare che la UI funzioni sul browser reale SUBITO dopo implementazione blocco, prima di procedere con altri blocchi.
+
+**Consulta `playwright-integration.md` per dettagli completi su setup, test generation, troubleshooting.**
+
+**Quick summary**:
+1. **Setup Playwright** (auto, se prima volta) - npm install + npx playwright install chromium
+2. **Genera test** per screen implementata (auto-generated da frontend-implementer)
+3. **Build frontend** web + start HTTP server (background)
+4. **Verifica backend** running (curl health endpoint)
+5. **Run** `npx playwright test --grep="@quick" --project=chromium`
+6. **Report** result (PASS: procedi | FAIL: notifica + continue)
+7. **Cleanup** (stop HTTP server, remove screenshots se pass)
+
+**Tipo**: REVIEW (non-blocking) - failure notificato ma NON blocca altri blocchi.
+
+**Effort**: ~30s (setup prima volta) + ~15-20s (run test)
+
+**Benefits**:
+- ✅ **UI verificata su browser reale** (non solo unit test)
+- ✅ **Early detection** di API mismatch, parsing errors, navigation issues
+- ✅ **Automatic** (zero manual effort se pass)
+- ✅ **Fast feedback** (~20s quick test vs minuti debug post-milestone)
+- ✅ **Progressive** (test ogni blocco, non solo a milestone end)
+
+**Configuration**:
+```yaml
+# project-config.yaml
+develop:
+  playwright:
+    enabled: true                    # Default: true
+    trigger: "on_frontend_block"     # Quando eseguire
+    auto_setup: true                 # Setup automatico NPM + Playwright
+    auto_generate_tests: true        # Genera test per blocco
+    test_timeout: 60000              # 60s max
+    on_failure: "notify"             # notify | stop | continue
+    cleanup_on_success: true         # Rimuovi screenshot se pass
+    browser: "chromium"              # chromium | firefox | webkit
+    headless: false                  # Mostra browser durante test
+```
+
+**Note**: Setup è completamente automatico - NON chiedere permesso all'utente per installare Playwright o generare test.
+
 2. **Squash merge su develop** (git flow):
    ```bash
    git checkout develop
