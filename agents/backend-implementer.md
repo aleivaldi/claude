@@ -2,7 +2,7 @@
 name: backend-implementer
 description: Implements backend code following API specs, writes business logic, creates routes and services
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: opus
+model: sonnet
 permissionMode: acceptEdits
 ---
 

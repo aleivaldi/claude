@@ -2,7 +2,7 @@
 name: fixer
 description: Automatically fixes code issues found by reviewer, handles lint errors, resolves test failures
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: opus
+model: sonnet
 permissionMode: acceptEdits
 ---
 

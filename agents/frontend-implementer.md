@@ -2,7 +2,7 @@
 name: frontend-implementer
 description: Implements frontend code following specs, creates components, manages state, integrates with backend
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: opus
+model: sonnet
 permissionMode: acceptEdits
 ---
 
