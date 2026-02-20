@@ -37,6 +37,7 @@
     ],
     "defaultMode": "default"
   },
+  "model": "sonnet",
   "hooks": {
     "SessionStart": [
       {
@@ -111,6 +112,10 @@
       }
     ]
   },
+  "enabledPlugins": {
+    "clangd-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true
+  },
   "language": "Italian",
-  "model": "sonnet"
+  "effortLevel": "medium"
 }

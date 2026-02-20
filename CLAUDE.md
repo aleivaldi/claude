@@ -407,3 +407,25 @@ project/
 6. **Auto-fix prima di fermarsi** - Fixer tenta correzione (max 3x)
 7. **Minimal e focused** - Niente over-engineering
 8. **Commenti minimi** - Solo WHY, mai WHAT
+
+## General Principles
+
+- Keep implementations simple and avoid over-engineering. When the user asks for a simple solution, do not add unnecessary abstractions, extra layers, or complex patterns. Match the complexity to what's requested.
+- Before starting implementation, confirm your understanding of the architecture with the user. Especially clarify: where images are generated (client vs server), what triggers what, and the data flow between frontend/backend/device.
+
+## Code Changes
+
+- When implementing changes, never introduce regressions in existing functionality. After each fix, verify that related features still work correctly. Run tests before committing.
+- When implementing parallel code paths that should produce identical results (e.g., two decode paths, preview vs saved output), ensure they use the exact same logic, buffers, thresholds, and sampling patterns. Verify parity explicitly.
+
+## Testing
+
+- Always run the full test suite after implementing changes. Never skip tests even if the code 'looks correct'. Follow the project's dev workflow framework for testing and commits.
+
+## Refactoring
+
+- When refactoring field names or data schemas, update ALL references across the entire stack (backend, frontend, MQTT, WebSocket, tests, simulators) in a single pass. Do not add backward-compatible fallbacks unless explicitly asked — use the new name cleanly everywhere.
+
+## Infrastructure / AWS
+
+- Use CloudFormation/IaC for ALL AWS infrastructure changes. Never use imperative bash scripts for provisioning or resource creation. Changes must be versioned and reproducible.

@@ -20,12 +20,40 @@ main ─────────────────────────
 ```yaml
 # project-config.yaml
 git_flow:
-  enabled: true                    # false disabilita tutto il git flow (backward-compatible)
-  develop_branch: develop          # nome branch develop
-  merge_to_main: on_milestone     # on_milestone | manual | never
+  enabled: true                    # Master switch per git flow
+  parallel_blocks: auto            # auto | true | false
+  develop_branch: develop          # Nome branch develop
+  merge_to_main: on_milestone      # on_milestone | manual | never
 ```
 
-Se `git_flow.enabled: false`, il workflow usa il comportamento precedente (commit diretti, squash con reset --soft).
+### Opzioni `parallel_blocks`
+
+| Valore | Comportamento |
+|--------|---------------|
+| `auto` | **RACCOMANDATO**: Auto-detect in fase decomposizione. Se tutti blocchi indipendenti → parallelo (no feature branch). Se ci sono dipendenze → sequenziale (feature branch). |
+| `true` | Forza parallelismo sempre. **DISABILITA feature branch** (impossibile branch paralleli stessa working dir). Commit diretti su develop. |
+| `false` | Forza sequenziale sempre. Usa feature branch per ogni blocco. |
+
+### Logica Auto-detect (`parallel_blocks: auto`)
+
+Durante **Fase 3 (Block Decomposition)**:
+
+1. **Analizza dependency DAG**:
+   - Se TUTTI blocchi indipendenti (DAG piatto, no archi) → `use_parallel = true, use_git_flow = false`
+   - Se esistono dipendenze (DAG con archi) → `use_parallel = false, use_git_flow = true`
+
+2. **Notifica utente**:
+   ```
+   Dependency Analysis:
+   - Total blocks: 6
+   - Independent blocks: 6
+   - Dependencies: 0
+
+   → PARALLEL MODE enabled (no feature branches)
+   → Commit diretti su develop con WIP
+   ```
+
+3. **Salva decisione** per Fase 4 (Execute Blocks)
 
 ## Fase 2: Setup Develop Branch
 
@@ -173,17 +201,73 @@ git pull --ff-only  # Se fallisce: divergenza, notifica utente
 git merge develop --no-ff
 ```
 
-## Isolamento Blocchi Paralleli
+## Workflow Parallelo (No Feature Branch)
 
-Blocchi paralleli lavorano su branch separati -> no conflitti tra loro.
-I conflitti possono emergere solo al merge su develop (sequenziale per natura).
+Quando `use_git_flow = false` (auto-detect o `parallel_blocks: true`):
+
+**Blocchi lavorano direttamente su develop senza feature branch.**
 
 ```
-develop ─────────────────────────────────►
-  \           \         /       /
-   feature/b1  feature/b2     /
-    (merge)     (merge dopo b1)
+develop ─── wip(b1) ─── wip(b2) ─── wip(b3) ─── feat(milestone) ──►
 ```
 
-Il merge su develop e' serializzato: ogni blocco mergia quando completa.
-Se due blocchi completano simultaneamente, uno attende l'altro.
+### Commit per Blocco (Parallelo)
+
+```bash
+# Blocco1 completa
+git checkout develop
+git add [block1-files]
+git commit -m "wip(block1): implement auth service
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>"
+
+# Blocco2 completa (in parallelo)
+git checkout develop
+git add [block2-files]
+git commit -m "wip(block2): implement device CRUD
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>"
+
+# ... tutti i blocchi ...
+```
+
+### Squash Finale (Opzionale)
+
+A milestone completo, puoi pulire la storia:
+
+```bash
+# Conta commit WIP da ultimo feat commit
+git log --oneline --grep="^wip"
+
+# Squash N commit WIP in 1 feat
+git reset --soft HEAD~N
+git commit -m "feat(milestone-1): complete auth and devices
+
+Blocks: 6 completed
+Tests: 245/245 passed
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>"
+```
+
+### Vincolo Critici (Parallelo)
+
+**LA DECOMPOSIZIONE DEVE GARANTIRE**: Blocchi paralleli NON toccano gli stessi file.
+
+- ✅ auth-service (src/auth/) + device-service (src/devices/) → OK
+- ❌ auth-routes (src/routes/auth.ts) + device-routes (src/routes/auth.ts) → CONFLITTO
+
+Se due blocchi toccano stesso file → DEVONO essere sequenziali (aggiungi dipendenza nel DAG).
+
+## Workflow Sequenziale (Feature Branch)
+
+Quando `use_git_flow = true` (auto-detect o `parallel_blocks: false`):
+
+**Ogni blocco ha il suo feature branch.**
+
+```
+develop ──────────────────────────────────►
+  \         /         /
+   feat/b1 ─►  feat/b2 ─►
+```
+
+Questo è il workflow documentato nelle sezioni precedenti (Feature Branch per Blocco, Squash Merge, etc.).

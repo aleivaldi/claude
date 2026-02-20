@@ -35,3 +35,6 @@ history.jsonl
 # Config locale (contiene dati specifici macchina)
 config.json
 plugins/
+backups
+ide
+usage-data
