@@ -2,7 +2,7 @@
 name: database-architect
 description: Designs database schemas, optimizes queries, reviews migrations, defines data models
 tools: Read, Write, Edit, Glob, Grep
-model: opus
+model: sonnet
 permissionMode: default
 ---
 
